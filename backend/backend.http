@@ -1,0 +1,24 @@
+@backend_HostAddress = http://localhost:5192
+@ml_ProxyPredict = {{backend_HostAddress}}/api/ml/predict
+@ml_ProxyHealth = {{backend_HostAddress}}/api/ml/health
+
+GET {{backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+GET {{ml_ProxyHealth}}
+Accept: application/json
+
+###
+
+POST {{ml_ProxyPredict}}
+Content-Type: application/json
+
+{
+	"lot_area": 120,
+	"zone": "R1",
+	"assessed_value": 350000
+}
+
+###
