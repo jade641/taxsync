@@ -61,6 +61,7 @@ export default function PropertyRegistration() {
   const canCreate = can("property.create");
   const canEdit   = can("property.edit");
   const canDelete = can("property.delete");
+  const canExport = can("reporting.export");
   const isReadOnly = !canCreate && !canEdit && !canDelete;
 
   const [properties,  setProperties]  = useState<Property[]>(INITIAL_PROPERTIES);
@@ -169,9 +170,15 @@ export default function PropertyRegistration() {
           <p className="text-sm text-slate-500 mt-1">Manage property records, assessments, and owner information for the Davao Region LGU jurisdiction.</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm flex items-center gap-2">
-            <Download className="h-4 w-4" /> Export
-          </button>
+          {canExport ? (
+            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm flex items-center gap-2">
+              <Download className="h-4 w-4" /> Export
+            </button>
+          ) : (
+            <button disabled className="px-4 py-2 bg-slate-100 border border-slate-200 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Export
+            </button>
+          )}
           {canCreate && (
             <button onClick={openAdd} className="px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
               style={{ backgroundColor: "#0d2137" }}

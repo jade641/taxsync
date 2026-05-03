@@ -249,6 +249,7 @@ function AuditorSummaryCharts({ counts, taxpayers }: {
 export default function Compliance() {
   const { can, user } = useAuth();
   const canUpdate  = can("compliance.update");
+  const canExport  = can("reporting.export");
   const isAuditor  = user?.role === "Auditor";
   const isReadOnly = !canUpdate;
 
@@ -309,10 +310,16 @@ export default function Compliance() {
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === "calendar" ? "text-white" : "text-slate-600 hover:text-slate-800"}`}
               style={view === "calendar" ? { backgroundColor: "#0d2137" } : {}}>Deadlines</button>
           </div>
-          {/* Export always allowed (read-only action) */}
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm">
-            <Download className="h-4 w-4" /> Export
-          </button>
+          {/* Export button with permission gating */}
+          {canExport ? (
+            <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm">
+              <Download className="h-4 w-4" /> Export
+            </button>
+          ) : (
+            <button disabled className="flex items-center gap-2 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed">
+              <Lock className="h-4 w-4" /> Export
+            </button>
+          )}
         </div>
       </div>
 

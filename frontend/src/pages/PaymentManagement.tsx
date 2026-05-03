@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Filter, Download, X, AlertCircle, CheckCircle, Clock, AlertTriangle, Eye, Receipt } from "lucide-react";
+import { Plus, Search, Filter, Download, X, AlertCircle, CheckCircle, Clock, AlertTriangle, Eye, Receipt, Lock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { ReadOnlyBanner, LimitedAccessBanner } from "../components/RoleGuard";
+import { AccessDenied, ReadOnlyBanner, LimitedAccessBanner } from "../components/RoleGuard";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -50,8 +50,14 @@ const EMPTY_FORM = {
 export default function PaymentManagement() {
   const { can, user } = useAuth();
 
+  // Route-level guard: block access if user lacks payment.view permission
+  if (!can("payment.view")) {
+    return <AccessDenied requiredRole="Admin, Accountant, or Staff" />;
+  }
+
   const canCreate  = can("payment.create");
   const canEdit    = can("payment.edit");
+  const canExport  = can("reporting.export");
   const isReadOnly = !canCreate && !canEdit;
 
   const [payments,    setPayments]    = useState<Payment[]>(INITIAL_PAYMENTS);
@@ -135,9 +141,15 @@ export default function PaymentManagement() {
           <p className="text-sm text-slate-500 mt-1">Record, track, and manage real property tax payments across Davao Region barangays.</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm flex items-center gap-2">
-            <Download className="h-4 w-4" /> Export
-          </button>
+          {canExport ? (
+            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm flex items-center gap-2">
+              <Download className="h-4 w-4" /> Export
+            </button>
+          ) : (
+            <button disabled className="px-4 py-2 bg-slate-100 border border-slate-200 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Export
+            </button>
+          )}
           {canCreate && (
             <button onClick={() => { setForm(EMPTY_FORM); setModal("add"); }}
               className="px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"

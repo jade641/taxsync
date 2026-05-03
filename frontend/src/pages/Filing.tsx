@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { UploadCloud, FileText, Search, Filter, Download, Trash2, Folder, X, Eye, FolderOpen, File, AlertCircle, CheckCircle, Lock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { ReadOnlyBanner, LimitedAccessBanner } from "../components/RoleGuard";
+import { AccessDenied, ReadOnlyBanner, LimitedAccessBanner } from "../components/RoleGuard";
 
 type DocType    = "PDF" | "Excel" | "Image" | "Word";
 type FolderName = "All Documents" | "Tax Declarations" | "Payment Receipts" | "Property Documents" | "Assessment Records" | "Legal Documents" | "Audit Files";
@@ -28,6 +28,11 @@ const getFileType = (n: string): DocType =>
 
 export default function Filing() {
   const { can, user } = useAuth();
+
+  // Route-level guard: block access if user lacks filing.view permission
+  if (!can("filing.view")) {
+    return <AccessDenied requiredRole="Admin, Accountant, or Staff" />;
+  }
 
   const canUpload = can("filing.upload");
   const canDelete = can("filing.delete");

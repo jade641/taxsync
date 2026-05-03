@@ -141,10 +141,10 @@ function LockedAIBanner() {
         <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg">
           <div className="flex gap-0.5">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className={`h-1.5 w-6 rounded-full ${i <= 1 ? "bg-slate-300" : "bg-slate-100"}`} />
+              <div key={i} className={`h-1.5 w-6 rounded-full ${i <= 2 ? "bg-slate-300" : "bg-slate-100"}`} />
             ))}
           </div>
-          <span className="text-[10px] text-slate-400">Access Level 2+ required</span>
+          <span className="text-[10px] text-slate-400">Access Level 3+ required (Accountant or Admin)</span>
         </div>
       </div>
     </div>
@@ -155,7 +155,7 @@ function LockedAIBanner() {
 // MAIN DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const navigate = useNavigate();
   const today = new Date().toLocaleDateString("en-PH", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -163,12 +163,13 @@ export default function Dashboard() {
   const totalProperties = paymentStatus.reduce((s, d) => s + d.value, 0);
 
   // ── Role-based gates ────────────────────────────────────────────────────────
-  // Issue 4: AI panel - Admin & Accountant get full panel; Auditor gets anomaly-only; Staff gets locked
-  const canViewAI = user?.role === "Admin" || user?.role === "Accountant";
+  // AI panel - Admin & Accountant get full panel; Auditor gets anomaly-only; Staff gets locked
+  const canViewAI = can("reporting.generate"); // Admin & Accountant have this
   const isAuditor = user?.role === "Auditor";
 
-  // Issue 5: Register Property button only for Admin (L4) & Staff (L2)
-  const canRegisterProperty = user?.role === "Admin" || user?.role === "Staff";
+  // Register Property button - use permission check
+  const canRegisterProperty = can("property.create");
+  const canExport = can("reporting.export");
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -182,10 +183,15 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-            Export Report
-          </button>
-          {/* Issue 5: Gate by Admin or Staff only */}
+          {canExport ? (
+            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
+              Export Report
+            </button>
+          ) : (
+            <button disabled className="px-4 py-2 bg-slate-100 border border-slate-200 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed shadow-sm">
+              Export Report
+            </button>
+          )}
           {canRegisterProperty && (
             <button
               className="px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"

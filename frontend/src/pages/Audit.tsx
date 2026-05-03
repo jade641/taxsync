@@ -57,6 +57,7 @@ export default function Audit() {
   }
 
   const isAuditor = user?.role === "Auditor";
+  const canExport = can("reporting.export");
 
   const [search,     setSearch]    = useState("");
   const [actFilter,  setActFilter] = useState("All Actions");
@@ -107,13 +108,21 @@ export default function Audit() {
             <button onClick={() => setView("table")}    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === "table"    ? "text-white" : "text-slate-600 hover:text-slate-800"}`} style={view === "table"    ? { backgroundColor: "#0d2137" } : {}}>Table</button>
             <button onClick={() => setView("timeline")} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === "timeline" ? "text-white" : "text-slate-600 hover:text-slate-800"}`} style={view === "timeline" ? { backgroundColor: "#0d2137" } : {}}>Timeline</button>
           </div>
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm flex items-center gap-2">
-            <Download className="h-4 w-4" /> Export Trail
-          </button>
+          {canExport ? (
+            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm flex items-center gap-2">
+              <Download className="h-4 w-4" /> Export Trail
+            </button>
+          ) : (
+            <button disabled className="px-4 py-2 bg-slate-100 border border-slate-200 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Export Trail
+            </button>
+          )}
         </div>
       </div>
 
-      <ReadOnlyBanner message={`Read-Only Access — Audit logs are immutable records per R.A. 7160. ${user?.role} accounts can view, filter, and export logs but cannot modify any entries.`} />
+      {isAuditor && (
+        <ReadOnlyBanner message="Read-Only Access — Audit logs are immutable records per R.A. 7160. Auditor accounts can view, filter, and export logs but cannot modify any entries." />
+      )}
 
       {/* ── Auditor KPI cards ─────────────────────────────────────────────── */}
       {isAuditor && (
@@ -399,9 +408,15 @@ export default function Audit() {
             </div>
             <div className="px-6 pb-6 flex gap-3">
               <button onClick={() => setSelected(null)} className="flex-1 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Close</button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700">
-                <Download className="h-4 w-4" /> Export Entry
-              </button>
+              {canExport ? (
+                <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700">
+                  <Download className="h-4 w-4" /> Export Entry
+                </button>
+              ) : (
+                <button disabled className="flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed">
+                  <Lock className="h-4 w-4" /> Export Entry
+                </button>
+              )}
             </div>
           </div>
         </div>
