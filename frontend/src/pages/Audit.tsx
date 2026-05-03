@@ -124,11 +124,17 @@ export default function Audit() {
             { label: "Warning Events",     value: auditStats.warningCount,  icon: Shield,         color: "border-l-amber-500",   bg: "bg-amber-50 text-amber-600"      },
             { label: "Users Tracked",      value: auditStats.usersTracked,  icon: Users,          color: "border-l-purple-500",  bg: "bg-purple-50 text-purple-600"    },
           ].map(({ label, value, icon: Icon, color, bg }) => (
-            <div key={label} className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm flex items-center gap-3 ${color}`}>
-              <div className={`p-2 rounded-lg flex-shrink-0 ${bg}`}><Icon className="h-4 w-4" /></div>
-              <div>
-                <p className="text-xs text-slate-500">{label}</p>
-                <p className="text-2xl font-bold text-slate-900">{value}</p>
+            <div key={label} className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm ${color}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${bg}`}><Icon className="h-4 w-4" /></div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">{label}</p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-3xl font-bold text-slate-900">{value}</p>
+                </div>
               </div>
             </div>
           ))}
@@ -140,11 +146,17 @@ export default function Audit() {
         <div className="grid grid-cols-3 gap-4">
           {(["info","warning","critical"] as SeverityType[]).map((s) => (
             <button key={s} onClick={() => setSevFilter(sevFilter === s ? "All" : s)}
-              className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 text-left hover:shadow-md transition-all ${sevFilter === s ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}>
-              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${SEVERITY_CFG[s].dot}`} />
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider">{SEVERITY_CFG[s].label}</p>
-                <p className="text-xl font-bold text-slate-900">{counts[s]}</p>
+              className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-left hover:shadow-md transition-all ${sevFilter === s ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 ${SEVERITY_CFG[s].dot}`} />
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">{SEVERITY_CFG[s].label}</p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-3xl font-bold text-slate-900">{counts[s]}</p>
+                </div>
               </div>
             </button>
           ))}
@@ -270,7 +282,7 @@ export default function Audit() {
                       <td className="px-5 py-4 text-xs text-slate-400 font-mono">{log.ip}</td>
                       <td className="px-5 py-4 text-center">
                         <button onClick={() => setSelected(log)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                       </td>
@@ -326,7 +338,7 @@ export default function Audit() {
                         <span className="text-[10px] text-slate-400">{log.id}</span>
                       </div>
                     </div>
-                    <button onClick={() => setSelected(log)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover:opacity-100 flex-shrink-0">
+                    <button onClick={() => setSelected(log)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg flex-shrink-0">
                       <Eye className="h-3.5 w-3.5" />
                     </button>
                   </div>

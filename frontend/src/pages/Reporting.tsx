@@ -111,17 +111,38 @@ export default function Reporting() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-slate-50 text-slate-600 rounded-lg flex-shrink-0"><FileText className="h-5 w-5" /></div>
-          <div><p className="text-xs text-slate-500">Draft Reports</p><p className="text-xl font-bold text-slate-900 mt-0.5">{summary.draft}</p></div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-3 bg-slate-50 text-slate-600 rounded-lg flex-shrink-0"><FileText className="h-5 w-5" /></div>
+              <div className="min-w-0"><p className="text-xs text-slate-500">Draft Reports</p></div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-3xl font-bold text-slate-900">{summary.draft}</p>
+            </div>
+          </div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-lg flex-shrink-0"><Eye className="h-5 w-5" /></div>
-          <div><p className="text-xs text-slate-500">For Review</p><p className="text-xl font-bold text-slate-900 mt-0.5">{summary.forReview}</p></div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-lg flex-shrink-0"><Eye className="h-5 w-5" /></div>
+              <div className="min-w-0"><p className="text-xs text-slate-500">For Review</p></div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-3xl font-bold text-slate-900">{summary.forReview}</p>
+            </div>
+          </div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg flex-shrink-0"><FileCheck className="h-5 w-5" /></div>
-          <div><p className="text-xs text-slate-500">Published</p><p className="text-xl font-bold text-slate-900 mt-0.5">{summary.published}</p></div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg flex-shrink-0"><FileCheck className="h-5 w-5" /></div>
+              <div className="min-w-0"><p className="text-xs text-slate-500">Published</p></div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-3xl font-bold text-slate-900">{summary.published}</p>
+            </div>
+          </div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 border-l-4 border-l-red-500 shadow-sm">
           <p className="text-xs text-slate-500">Next Deadline</p>

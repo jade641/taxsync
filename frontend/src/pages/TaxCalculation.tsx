@@ -285,8 +285,10 @@ export default function TaxCalculation() {
 
           <div className="p-5 space-y-4">
             <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-xs text-slate-500">Total Properties</p>
-              <p className="text-xl font-bold text-slate-900 mt-0.5">{filtered.length}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">Total Properties</p>
+                <p className="text-3xl font-bold text-slate-900">{filtered.length}</p>
+              </div>
             </div>
             <div>
               <p className="text-xs text-slate-500 mb-1">Total Assessed Value</p>

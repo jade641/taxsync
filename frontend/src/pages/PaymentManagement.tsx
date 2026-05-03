@@ -157,24 +157,48 @@ export default function PaymentManagement() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
-          <p className="text-xs text-slate-500 mb-1">Total Collected</p>
-          <p className="text-xl font-bold text-slate-900">₱{(summary.totalCollected / 1000000).toFixed(2)}M</p>
-          <p className="text-[10px] text-emerald-600 mt-1">{summary.paidCount} payments received</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500">Total Collected</p>
+              <p className="text-[10px] text-emerald-600 mt-1">{summary.paidCount} payments received</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-3xl font-bold text-slate-900">₱{(summary.totalCollected / 1000000).toFixed(2)}M</p>
+            </div>
+          </div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-amber-500 shadow-sm">
-          <p className="text-xs text-slate-500 mb-1">Unpaid</p>
-          <p className="text-xl font-bold text-slate-900">{summary.unpaidCount}</p>
-          <p className="text-[10px] text-amber-600 mt-1">Awaiting payment</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500">Unpaid</p>
+              <p className="text-[10px] text-amber-600 mt-1">Awaiting payment</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-3xl font-bold text-slate-900">{summary.unpaidCount}</p>
+            </div>
+          </div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-red-500 shadow-sm">
-          <p className="text-xs text-slate-500 mb-1">Late / Delinquent</p>
-          <p className="text-xl font-bold text-slate-900">{summary.lateCount}</p>
-          <p className="text-[10px] text-red-600 mt-1">Past due date</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500">Late / Delinquent</p>
+              <p className="text-[10px] text-red-600 mt-1">Past due date</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-3xl font-bold text-slate-900">{summary.lateCount}</p>
+            </div>
+          </div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-orange-500 shadow-sm">
-          <p className="text-xs text-slate-500 mb-1">Total Penalties</p>
-          <p className="text-xl font-bold text-slate-900">{fmt(summary.totalPenalty)}</p>
-          <p className="text-[10px] text-orange-600 mt-1">2% surcharge applied</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500">Total Penalties</p>
+              <p className="text-[10px] text-orange-600 mt-1">2% surcharge applied</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-3xl font-bold text-slate-900">{fmt(summary.totalPenalty)}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -254,7 +278,7 @@ export default function PaymentManagement() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex justify-center gap-1">
                             <button onClick={() => { setSelected(pay); setModal("view"); }}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="View">
                               <Eye className="h-3.5 w-3.5" />

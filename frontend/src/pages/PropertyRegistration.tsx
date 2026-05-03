@@ -195,14 +195,20 @@ export default function PropertyRegistration() {
           { label: "Total Assessed Value",value: fmtShort(summary.totalAssessed), sub: "for taxation", color: "border-l-purple-500", bg: "bg-purple-50 text-purple-600" },
           { label: "Anomalies Detected", value: String(summary.anomalies), sub: "flagged by AI",   color: "border-l-amber-500",   bg: "bg-amber-50 text-amber-600" },
         ].map(({ label, value, sub, color, bg }) => (
-          <div key={label} className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm flex items-center gap-3 ${color}`}>
-            <div className={`p-2 rounded-lg flex-shrink-0 ${bg}`}>
-              <Home className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className="text-xl font-bold text-slate-900">{value}</p>
-              <p className="text-[10px] text-slate-400">{sub}</p>
+          <div key={label} className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm ${color}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className={`p-2 rounded-lg flex-shrink-0 ${bg}`}>
+                  <Home className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{sub}</p>
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-3xl font-bold text-slate-900">{value}</p>
+              </div>
             </div>
           </div>
         ))}
@@ -292,7 +298,7 @@ export default function PropertyRegistration() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-center">
-                      <div className="flex justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-center gap-1.5">
                         <button onClick={() => openView(prop)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="View Details">
                           <Eye className="h-3.5 w-3.5" />
                         </button>

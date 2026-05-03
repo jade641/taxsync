@@ -1,80 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, Outlet, useLocation, Navigate, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, Navigate, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Home, Calculator, CreditCard,
-  FileText, ShieldCheck, FolderOpen, History, Users,
   Bell, Search, ChevronDown, LogOut, Settings, User,
-  X, AlertTriangle, CalendarDays, Clock, Menu, Lock,
-  Shield, Info, Eye,
+  AlertTriangle, CalendarDays, Clock, Menu,
+  Shield,
 } from "lucide-react";
-import { useAuth, ROLE_META, type Permission } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
+import { getRoleConfig } from "../config/roleConfig";
+import { PermissionProvider } from "../context/PermissionContext";
+import Sidebar from "./Sidebar";
 
 // ─── Nav item definitions ────────────────────────────────────────────────────
-const NAV_ITEMS = [
-  {
-    name: "Dashboard",
-    path: "/app",
-    icon: LayoutDashboard,
-    permission: "dashboard.view" as Permission,
-    description: "Overview & KPIs",
-  },
-  {
-    name: "Property Registry",
-    path: "/app/property-registration",
-    icon: Home,
-    permission: "property.view" as Permission,
-    description: "Register & manage properties",
-  },
-  {
-    name: "Tax Calculation",
-    path: "/app/tax-calculation",
-    icon: Calculator,
-    permission: "tax.view" as Permission,
-    description: "RPT computation & rates",
-  },
-  {
-    name: "Payment Management",
-    path: "/app/payment-management",
-    icon: CreditCard,
-    permission: "payment.view" as Permission,
-    description: "Record & track payments",
-  },
-  {
-    name: "Compliance",
-    path: "/app/compliance",
-    icon: ShieldCheck,
-    permission: "compliance.view" as Permission,
-    description: "Deadlines & compliance status",
-  },
-  {
-    name: "Filing & Docs",
-    path: "/app/filing",
-    icon: FolderOpen,
-    permission: "filing.view" as Permission,
-    description: "Document repository",
-  },
-  {
-    name: "Govt Reporting",
-    path: "/app/reporting",
-    icon: FileText,
-    permission: "reporting.view" as Permission,
-    description: "Barangay & Davao Region LGU reports",
-  },
-  {
-    name: "Audit Support",
-    path: "/app/audit",
-    icon: History,
-    permission: "audit.view" as Permission,
-    description: "System activity logs",
-  },
-  {
-    name: "User Management",
-    path: "/app/users",
-    icon: Users,
-    permission: "users.view" as Permission,
-    description: "Accounts & roles",
-  },
-];
+// Navigation is now handled by roleConfig.ts
 
 const NOTIFICATIONS = [
   { id: 1, title: "Q1 RPT Payment Due",         desc: "1st quarter deadline: March 31 — 247 properties unpaid", type: "deadline", time: "Overdue" },
@@ -94,12 +31,11 @@ function AccessLevelBar({ level }: { level: number }) {
 }
 
 export default function AppLayout() {
-  const { user, isAuthenticated, logout, hasPermission } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu]   = useState(false);
-  const [showRoleInfo, setShowRoleInfo]   = useState(false);
   const [sidebarOpen, setSidebarOpen]     = useState(false);
   const notifRef    = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -115,149 +51,21 @@ export default function AppLayout() {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  const meta        = ROLE_META[user!.role];
-  const urgentCount = NOTIFICATIONS.filter((n) => n.type === "overdue").length;
+  const roleConfig = getRoleConfig(user!.role);
+  if (!roleConfig) return <Navigate to="/login" replace />;
 
-  const accessibleNav = NAV_ITEMS.filter((item) => hasPermission(item.permission));
-  const restrictedNav = NAV_ITEMS.filter((item) => !hasPermission(item.permission));
+  const urgentCount = NOTIFICATIONS.filter((n) => n.type === "overdue").length;
 
   const handleLogout = () => { logout(); navigate("/"); };
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+    <PermissionProvider currentPath={location.pathname}>
+      <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
+        {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
-      <aside className={`fixed lg:relative inset-y-0 left-0 z-40 w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200 flex-shrink-0"
-          style={{ backgroundColor: "#0d2137" }}>
-          <div className="flex items-center gap-2.5">
-            <img src="/taxsync-logo.png" alt="TaxSync Logo" className="h-10 w-auto object-contain bg-white rounded-md p-1" />
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-slate-400 hover:text-white">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Role card */}
-        <div className={`px-4 py-3 border-b border-slate-100 ${meta.bgClass}`}>
-          <div className="flex items-center gap-2.5">
-            <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${meta.badgeClass}`}>
-              {user!.initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-slate-900 truncate">{user!.name}</p>
-              <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mt-0.5 ${meta.badgeClass}`}>
-                {meta.label}
-              </span>
-            </div>
-            <button onClick={() => setShowRoleInfo(!showRoleInfo)}
-              className={`p-1 rounded-full ${meta.textClass} hover:opacity-70 transition-opacity flex-shrink-0`}
-              title="View role permissions">
-              <Info className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          <div className={`mt-2.5 ${meta.textClass}`}>
-            <AccessLevelBar level={meta.accessLevel} />
-            <p className="text-[10px] mt-1 opacity-60">Access Level {meta.accessLevel} of 4</p>
-          </div>
-
-          {/* Auditor Read-Only indicator */}
-          {user!.role === "Auditor" && (
-            <div className="mt-2.5 flex items-center gap-2 px-2.5 py-2 bg-amber-100 border border-amber-300 rounded-lg">
-              <Eye className="h-3.5 w-3.5 text-amber-700 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Read-Only Mode</p>
-                <p className="text-[9px] text-amber-600 leading-tight mt-0.5">View & export only · No modifications</p>
-              </div>
-            </div>
-          )}
-
-          {showRoleInfo && (
-            <div className="mt-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm text-xs text-slate-600 space-y-1">
-              <p className="font-semibold text-slate-800 mb-1.5">{meta.label} Permissions:</p>
-              {meta.description.split(" · ").map((line: string, i: number) => (
-                <div key={i} className="flex items-start gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${meta.textClass} bg-current`} />
-                  <span>{line}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-3">
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest px-3 py-2 font-semibold">
-            My Modules ({accessibleNav.length})
-          </p>
-          <div className="space-y-0.5">
-            {accessibleNav.map((item) => {
-              const isActive = location.pathname === item.path;
-              const Icon = item.icon;
-              return (
-                <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    isActive ? "text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-                  style={isActive ? { backgroundColor: "#0d2137" } : {}}>
-                  <Icon className="flex-shrink-0" style={{ width: 16, height: 16 }} />
-                  <div className="min-w-0 flex-1">
-                    <p className="leading-tight">{item.name}</p>
-                    <p className={`text-[10px] leading-tight mt-0.5 ${isActive ? "text-blue-300" : "text-slate-400"}`}>
-                      {item.description}
-                    </p>
-                  </div>
-                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-blue-300 flex-shrink-0" />}
-                </Link>
-              );
-            })}
-          </div>
-
-          {restrictedNav.length > 0 && (
-            <>
-              <p className="text-[10px] text-slate-300 uppercase tracking-widest px-3 py-2 font-semibold mt-4">
-                Restricted Access ({restrictedNav.length})
-              </p>
-              <div className="space-y-0.5">
-                {restrictedNav.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.path} title={`Requires higher access — ${item.name}`}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-not-allowed select-none">
-                      <Icon className="flex-shrink-0 text-slate-200" style={{ width: 16, height: 16 }} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-slate-300 leading-tight">{item.name}</p>
-                        <p className="text-[10px] text-slate-200 leading-tight mt-0.5">{item.description}</p>
-                      </div>
-                      <Lock className="h-3 w-3 text-slate-200 flex-shrink-0" />
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </nav>
-
-        {/* Bottom */}
-        <div className="p-3 border-t border-slate-200 flex-shrink-0">
-          <button onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors font-medium">
-            <LogOut className="h-4 w-4 flex-shrink-0" />
-            Sign Out
-          </button>
-          <p className="px-3 mt-1.5 text-[10px] text-slate-300">© 2026 TaxSync Davao Region LGU System · v3.1.0</p>
-        </div>
-      </aside>
-
-      {/* ── Main Content ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* ── Main Content ─────────────────────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Top Header */}
         <header className="h-16 flex-shrink-0 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-20">
@@ -315,16 +123,16 @@ export default function AppLayout() {
             </div>
 
             {/* Role badge */}
-            <div className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${meta.badgeClass}`}>
+            <div className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${roleConfig.badgeClass}`}>
               <Shield className="h-3 w-3" />
-              {meta.label}
+              {roleConfig.label}
             </div>
 
             {/* User Menu */}
             <div className="relative" ref={userMenuRef}>
               <button onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
                 className="flex items-center gap-2.5 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${meta.badgeClass}`}>
+                <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${roleConfig.badgeClass}`}>
                   {user!.initials}
                 </div>
                 <div className="hidden md:block text-left">
@@ -336,38 +144,38 @@ export default function AppLayout() {
 
               {showUserMenu && (
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
-                  <div className={`p-4 border-b border-slate-100 ${meta.bgClass}`}>
+                  <div className={`p-4 border-b border-slate-100 ${roleConfig.bgClass}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold ${meta.badgeClass}`}>
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold ${roleConfig.badgeClass}`}>
                         {user!.initials}
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{user!.name}</p>
                         <p className="text-xs text-slate-500">{user!.email}</p>
-                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${meta.badgeClass}`}>
-                          {meta.label}
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${roleConfig.badgeClass}`}>
+                          {roleConfig.label}
                         </span>
                       </div>
                     </div>
-                    <div className={`mt-3 ${meta.textClass}`}>
+                    <div className={`mt-3 ${roleConfig.textClass}`}>
                       <div className="flex justify-between text-[10px] mb-1 opacity-70">
-                        <span>Access Level</span><span>{meta.accessLevel}/4</span>
+                        <span>Access Level</span><span>{roleConfig.accessLevel}/4</span>
                       </div>
-                      <AccessLevelBar level={meta.accessLevel} />
+                      <AccessLevelBar level={roleConfig.accessLevel} />
                     </div>
                   </div>
                   <div className="p-2">
                     <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
                       <User className="h-4 w-4 text-slate-400" /> My Profile
                     </button>
-                    {hasPermission("settings.manage") && (
+                    {user!.role === "Admin" && (
                       <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
                         <Settings className="h-4 w-4 text-slate-400" /> System Settings
                       </button>
                     )}
                     <div className="mx-2 my-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                       <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Your Access</p>
-                      <p className="text-xs text-slate-600 leading-snug">{meta.description}</p>
+                      <p className="text-xs text-slate-600 leading-snug">{roleConfig.description}</p>
                     </div>
                     <div className="border-t border-slate-100 my-1" />
                     <button onClick={handleLogout}
@@ -385,7 +193,8 @@ export default function AppLayout() {
         <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-6">
           <Outlet />
         </main>
+        </div>
       </div>
-    </div>
+    </PermissionProvider>
   );
 }

@@ -25,12 +25,12 @@ export default function Navbar({ onSignIn }: NavbarProps) {
           : 'bg-transparent'
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <div className="flex items-center gap-3">
-          <img src="/taxsync-logo.png" alt="TaxSync Logo" className="h-12 w-auto object-contain rounded-md bg-white p-1" />
+      <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6">
+        <div className="flex items-center gap-3 ml-12">
+          <img src="/taxsync-logo.png" alt="TaxSync Logo" className="h-20 w-auto object-contain rounded-md bg-white p-2" />
         </div>
 
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden absolute left-1/2 -translate-x-1/2 items-center gap-8 md:flex">
           {NAV_LINKS.map((link) => (
             <a
               key={link}

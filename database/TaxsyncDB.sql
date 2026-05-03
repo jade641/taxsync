@@ -71,6 +71,157 @@ CREATE TABLE `password_reset_tokens` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- 3. GEOGRAPHIC HIERARCHY MODULE
+-- ============================================
+
+CREATE TABLE `regions` (
+  `region_id` int(11) NOT NULL AUTO_INCREMENT,
+  `region_code` varchar(20) NOT NULL,
+  `region_name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`region_id`),
+  UNIQUE KEY `region_code` (`region_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `regions` (`region_code`, `region_name`, `description`) VALUES
+('XI', 'Davao Region', 'Region XI - Davao Region');
+
+CREATE TABLE `provinces` (
+  `province_id` int(11) NOT NULL AUTO_INCREMENT,
+  `region_id` int(11) NOT NULL,
+  `province_code` varchar(20) NOT NULL,
+  `province_name` varchar(100) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`province_id`),
+  UNIQUE KEY `province_code` (`province_code`),
+  KEY `idx_region` (`region_id`),
+  CONSTRAINT `fk_province_region` FOREIGN KEY (`region_id`) REFERENCES `regions` (`region_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `provinces` (`region_id`, `province_code`, `province_name`) VALUES
+(1, 'DAV-SUR', 'Davao del Sur'),
+(1, 'DAV-NOR', 'Davao del Norte'),
+(1, 'DAV-ORO', 'Davao de Oro'),
+(1, 'DAV-ORI', 'Davao Oriental'),
+(1, 'DAV-OCC', 'Davao Occidental');
+
+CREATE TABLE `cities` (
+  `city_id` int(11) NOT NULL AUTO_INCREMENT,
+  `province_id` int(11) NOT NULL,
+  `city_code` varchar(20) NOT NULL,
+  `city_name` varchar(100) NOT NULL,
+  `city_type` enum('city','municipality') NOT NULL DEFAULT 'municipality',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`city_id`),
+  UNIQUE KEY `city_code` (`city_code`),
+  KEY `idx_province` (`province_id`),
+  CONSTRAINT `fk_city_province` FOREIGN KEY (`province_id`) REFERENCES `provinces` (`province_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `cities` (`province_id`, `city_code`, `city_name`, `city_type`) VALUES
+-- Davao del Sur
+(1, 'DIGOS', 'Digos City', 'city'),
+(1, 'BANSALAN', 'Bansalan', 'municipality'),
+(1, 'HAGONOY', 'Hagonoy', 'municipality'),
+(1, 'KIBLAWAN', 'Kiblawan', 'municipality'),
+(1, 'MAGSAYSAY', 'Magsaysay', 'municipality'),
+(1, 'MALALAG', 'Malalag', 'municipality'),
+(1, 'MATANAO', 'Matanao', 'municipality'),
+(1, 'PADADA', 'Padada', 'municipality'),
+(1, 'SANTA-CRUZ', 'Santa Cruz', 'municipality'),
+(1, 'SULOP', 'Sulop', 'municipality'),
+-- Davao del Norte
+(2, 'TAGUM', 'Tagum City', 'city'),
+(2, 'PANABO', 'Panabo City', 'city'),
+(2, 'SAMAL', 'Island Garden City of Samal', 'city'),
+(2, 'ASUNCION', 'Asuncion', 'municipality'),
+(2, 'BRAULIO', 'Braulio E. Dujali', 'municipality'),
+(2, 'CARMEN', 'Carmen', 'municipality'),
+(2, 'KAPALONG', 'Kapalong', 'municipality'),
+(2, 'NEW-CORELLA', 'New Corella', 'municipality'),
+(2, 'SAN-ISIDRO', 'San Isidro', 'municipality'),
+(2, 'SANTO-TOMAS', 'Santo Tomas', 'municipality'),
+(2, 'TALAINGOD', 'Talaingod', 'municipality'),
+-- Davao de Oro
+(3, 'NABUNTURAN', 'Nabunturan', 'municipality'),
+(3, 'COMPOSTELA', 'Compostela', 'municipality'),
+(3, 'LAAK', 'Laak', 'municipality'),
+(3, 'MABINI', 'Mabini', 'municipality'),
+(3, 'MACO', 'Maco', 'municipality'),
+(3, 'MARAGUSAN', 'Maragusan', 'municipality'),
+(3, 'MAWAB', 'Mawab', 'municipality'),
+(3, 'MONKAYO', 'Monkayo', 'municipality'),
+(3, 'MONTEVISTA', 'Montevista', 'municipality'),
+(3, 'NEW-BATAAN', 'New Bataan', 'municipality'),
+(3, 'PANTUKAN', 'Pantukan', 'municipality'),
+-- Davao Oriental
+(4, 'MATI', 'Mati City', 'city'),
+(4, 'BAGANGA', 'Baganga', 'municipality'),
+(4, 'BANAYBANAY', 'Banaybanay', 'municipality'),
+(4, 'BOSTON', 'Boston', 'municipality'),
+(4, 'CARAGA', 'Caraga', 'municipality'),
+(4, 'CATEEL', 'Cateel', 'municipality'),
+(4, 'GOVERNOR', 'Governor Generoso', 'municipality'),
+(4, 'LUPON', 'Lupon', 'municipality'),
+(4, 'MANAY', 'Manay', 'municipality'),
+(4, 'SAN-ISIDRO-ORI', 'San Isidro', 'municipality'),
+(4, 'TARRAGONA', 'Tarragona', 'municipality'),
+-- Davao Occidental
+(5, 'MALITA', 'Malita', 'municipality'),
+(5, 'SANTA-MARIA', 'Santa Maria', 'municipality'),
+(5, 'DON-MARCELINO', 'Don Marcelino', 'municipality'),
+(5, 'JOSE-ABAD', 'Jose Abad Santos', 'municipality'),
+(5, 'SARANGANI', 'Sarangani', 'municipality');
+
+-- Davao City (Highly Urbanized City - separate from provinces)
+INSERT INTO `cities` (`province_id`, `city_code`, `city_name`, `city_type`) VALUES
+(2, 'DAVAO-CITY', 'Davao City', 'city');
+
+CREATE TABLE `barangays` (
+  `barangay_id` int(11) NOT NULL AUTO_INCREMENT,
+  `city_id` int(11) NOT NULL,
+  `barangay_code` varchar(20) NOT NULL,
+  `barangay_name` varchar(100) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`barangay_id`),
+  UNIQUE KEY `barangay_code` (`barangay_code`),
+  KEY `idx_city` (`city_id`),
+  CONSTRAINT `fk_barangay_city` FOREIGN KEY (`city_id`) REFERENCES `cities` (`city_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Sample barangays for Davao City
+INSERT INTO `barangays` (`city_id`, `barangay_code`, `barangay_name`) VALUES
+(32, 'DC-POBLACION', 'Poblacion District'),
+(32, 'DC-AGDAO', 'Agdao'),
+(32, 'DC-BUHANGIN', 'Buhangin'),
+(32, 'DC-BUNAWAN', 'Bunawan'),
+(32, 'DC-CALINAN', 'Calinan'),
+(32, 'DC-MARILOG', 'Marilog'),
+(32, 'DC-PAQUIBATO', 'Paquibato'),
+(32, 'DC-TALOMO', 'Talomo'),
+(32, 'DC-TORIL', 'Toril'),
+(32, 'DC-TUGBOK', 'Tugbok'),
+(32, 'DC-BAGUIO', 'Baguio District');
+
+-- Sample barangays for Tagum City
+INSERT INTO `barangays` (`city_id`, `barangay_code`, `barangay_name`) VALUES
+(11, 'TAG-POBLACION', 'Poblacion'),
+(11, 'TAG-APOKON', 'Apokon'),
+(11, 'TAG-BINCUNGAN', 'Bincungan'),
+(11, 'TAG-CUAMBOGAN', 'Cuambogan'),
+(11, 'TAG-LA-FILIPINA', 'La Filipina'),
+(11, 'TAG-LIBOGANON', 'Liboganon'),
+(11, 'TAG-MADAUM', 'Madaum'),
+(11, 'TAG-MAGUGPO', 'Magugpo'),
+(11, 'TAG-MANKILAM', 'Mankilam'),
+(11, 'TAG-NEW-BALAMBAN', 'New Balamban'),
+(11, 'TAG-PAGSABANGAN', 'Pagsabangan'),
+(11, 'TAG-SAN-AGUSTIN', 'San Agustin'),
+(11, 'TAG-SAN-MIGUEL', 'San Miguel'),
+(11, 'TAG-VISAYAN-VILLAGE', 'Visayan Village');
+
+-- ============================================
 -- 3. PROPERTY REGISTRATION MODULE
 -- ============================================
 
@@ -82,9 +233,10 @@ CREATE TABLE `properties` (
   `title_number` varchar(100) DEFAULT NULL,
   `address_line1` varchar(255) NOT NULL,
   `address_line2` varchar(255) DEFAULT NULL,
-  `barangay` varchar(100) NOT NULL,
-  `city` varchar(100) NOT NULL,
-  `province` varchar(100) NOT NULL,
+  `region_id` int(11) NOT NULL,
+  `province_id` int(11) NOT NULL,
+  `city_id` int(11) NOT NULL,
+  `barangay_id` int(11) NOT NULL,
   `postal_code` varchar(10) DEFAULT NULL,
   `lot_area` decimal(12,2) DEFAULT NULL,
   `floor_area` decimal(12,2) DEFAULT NULL,
@@ -100,7 +252,15 @@ CREATE TABLE `properties` (
   KEY `idx_owner` (`owner_id`),
   KEY `idx_property_number` (`property_number`),
   KEY `idx_status` (`status`),
-  CONSTRAINT `fk_property_owner` FOREIGN KEY (`owner_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+  KEY `idx_region` (`region_id`),
+  KEY `idx_province` (`province_id`),
+  KEY `idx_city` (`city_id`),
+  KEY `idx_barangay` (`barangay_id`),
+  CONSTRAINT `fk_property_owner` FOREIGN KEY (`owner_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_property_region` FOREIGN KEY (`region_id`) REFERENCES `regions` (`region_id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_property_province` FOREIGN KEY (`province_id`) REFERENCES `provinces` (`province_id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_property_city` FOREIGN KEY (`city_id`) REFERENCES `cities` (`city_id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_property_barangay` FOREIGN KEY (`barangay_id`) REFERENCES `barangays` (`barangay_id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `property_documents` (

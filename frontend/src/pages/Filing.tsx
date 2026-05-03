@@ -246,7 +246,7 @@ export default function Filing() {
                           <td className="px-5 py-3.5 text-xs text-slate-500">{doc.size}</td>
                           <td className="px-5 py-3.5 text-xs text-slate-500">{doc.date}</td>
                           <td className="px-5 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center justify-end gap-1">
                               <button onClick={() => setPreviewDoc(doc)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Preview">
                                 <Eye className="h-3.5 w-3.5" />
                               </button>

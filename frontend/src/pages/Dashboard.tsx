@@ -204,64 +204,76 @@ export default function Dashboard() {
 
         {/* Total Properties */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Properties</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-2">{totalProperties.toLocaleString()}</h3>
-              <p className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
-                <ArrowUpRight className="h-3 w-3" /> +142 this quarter
-              </p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-3 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-100 transition-colors flex-shrink-0">
+                <Home className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Properties</p>
+                <p className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
+                  <ArrowUpRight className="h-3 w-3" /> +142 this quarter
+                </p>
+                <div className="mt-3 h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: "76%" }} />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">76% registered in system</p>
+              </div>
             </div>
-            <div className="p-3 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-100 transition-colors">
-              <Home className="h-5 w-5" />
+            <div className="text-right flex-shrink-0">
+              <h3 className="text-3xl font-bold text-slate-900">{totalProperties.toLocaleString()}</h3>
             </div>
           </div>
-          <div className="mt-4 h-1 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full" style={{ width: "76%" }} />
-          </div>
-          <p className="text-[10px] text-slate-400 mt-1">76% registered in system</p>
         </div>
 
         {/* Tax Collected */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group border-l-4 border-l-emerald-400">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tax Collected YTD</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-2">₱16.84M</h3>
-              <p className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
-                <ArrowUpRight className="h-3 w-3" /> +8.4% vs last year
-              </p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tax Collected YTD</p>
+                <p className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
+                  <ArrowUpRight className="h-3 w-3" /> +8.4% vs last year
+                </p>
+                <div className="mt-3 h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: "56%" }} />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">56% of annual target (₱30M)</p>
+              </div>
             </div>
-            <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-100 transition-colors">
-              <TrendingUp className="h-5 w-5" />
+            <div className="text-right flex-shrink-0">
+              <h3 className="text-3xl font-bold text-slate-900">₱16.84M</h3>
             </div>
           </div>
-          <div className="mt-4 h-1 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: "56%" }} />
-          </div>
-          <p className="text-[10px] text-slate-400 mt-1">56% of annual target (₱30M)</p>
         </div>
 
         {/* Pending Payments */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-amber-400 group">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pending Payments</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-2">1,006</h3>
-              <p className="text-xs text-amber-600 font-medium mt-2 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" /> 272 past due date
-              </p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-3 bg-amber-50 rounded-xl text-amber-600 group-hover:bg-amber-100 transition-colors flex-shrink-0">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pending Payments</p>
+                <p className="text-xs text-amber-600 font-medium mt-2 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> 272 past due date
+                </p>
+                <div className="mt-3 flex gap-1">
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <div key={i} className={`flex-1 h-1.5 rounded-full ${i < 7 ? "bg-amber-400" : "bg-slate-100"}`} />
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">734 unpaid + 272 late</p>
+              </div>
             </div>
-            <div className="p-3 bg-amber-50 rounded-xl text-amber-600 group-hover:bg-amber-100 transition-colors">
-              <AlertCircle className="h-5 w-5" />
+            <div className="text-right flex-shrink-0">
+              <h3 className="text-3xl font-bold text-slate-900">1,006</h3>
             </div>
           </div>
-          <div className="mt-4 flex gap-1">
-            {Array.from({ length: 10 }, (_, i) => (
-              <div key={i} className={`flex-1 h-1.5 rounded-full ${i < 7 ? "bg-amber-400" : "bg-slate-100"}`} />
-            ))}
-          </div>
-          <p className="text-[10px] text-slate-400 mt-1">734 unpaid + 272 late</p>
         </div>
 
         {/* Issue 3: Compliance Rate — arc gauge ────────────��──────────────────── */}
@@ -563,7 +575,7 @@ export default function Dashboard() {
                   <span className={`text-xs font-medium ${alert.type === "critical" ? "text-red-600" : alert.time === "Today" ? "text-blue-600" : "text-slate-500"}`}>
                     {alert.time}
                   </span>
-                  <button className="px-2.5 py-1 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+                  <button className="px-2.5 py-1 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition-opacity font-medium">
                     Action
                   </button>
                 </div>

@@ -330,14 +330,20 @@ export default function Compliance() {
           { key: "Unpaid",    label: "Unpaid",           color: "border-l-red-500",     bg: "bg-red-100 text-red-600",       Icon: AlertCircle  },
         ] as const).map(({ key, label, color, bg, Icon }) => (
           <button key={key} onClick={() => { setFilter(key); if (view === "summary") setView("list"); }}
-            className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm flex items-center gap-3 text-left w-full hover:shadow-md transition-all ${color} ${filter === key && view === "list" ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}>
-            <div className={`p-2 rounded-lg flex-shrink-0 ${bg}`}><Icon className="h-4 w-4" /></div>
-            <div>
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className="text-2xl font-bold text-slate-900">{counts[key]}</p>
-              {key !== "All" && (
-                <p className="text-[10px] text-slate-400 mt-0.5">{((counts[key] / counts.All) * 100).toFixed(1)}% of total</p>
-              )}
+            className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm text-left w-full hover:shadow-md transition-all ${color} ${filter === key && view === "list" ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className={`p-2 rounded-lg flex-shrink-0 ${bg}`}><Icon className="h-4 w-4" /></div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  {key !== "All" && (
+                    <p className="text-[10px] text-slate-400 mt-1">{((counts[key] / counts.All) * 100).toFixed(1)}% of total</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-3xl font-bold text-slate-900">{counts[key]}</p>
+              </div>
             </div>
           </button>
         ))}
@@ -473,7 +479,7 @@ export default function Compliance() {
                             <Eye className="h-3 w-3" /> Review
                           </button>
                         ) : canUpdate ? (
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div>
                             {t.status !== "Compliant" ? (
                               <button onClick={() => markCompliant(t.id)}
                                 className="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 font-medium">
@@ -486,7 +492,7 @@ export default function Compliance() {
                             )}
                           </div>
                         ) : (
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 justify-center px-3 py-1.5 bg-slate-100 text-slate-400 text-xs rounded-lg cursor-not-allowed border border-slate-200">
+                          <div className="flex items-center gap-1.5 justify-center px-3 py-1.5 bg-slate-100 text-slate-400 text-xs rounded-lg cursor-not-allowed border border-slate-200">
                             <Lock className="h-3 w-3" /> Restricted
                           </div>
                         )}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type React from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye, EyeOff, AlertCircle, Mail, Lock,
@@ -114,7 +114,17 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto">
+    <div className="w-full max-w-sm mx-auto" style={{ minHeight: "480px" }}>
+      <div className="mb-6">
+        <Link 
+          to="/" 
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors group"
+        >
+          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+          Back to Landing Page
+        </Link>
+      </div>
+      
       <div className="mb-8">
         <p className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-2" style={{ color: "#2563eb" }}>
           Secure Government Portal
@@ -177,7 +187,7 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
           </div>
           <div className="mt-2">
             <button type="button" onClick={onForgot}
-              className="text-xs font-medium transition-colors hover:underline focus:outline-none"
+              className="text-xs font-medium transition-colors focus:outline-none border-b border-transparent hover:border-current"
               style={{ color: "#1d4ed8" }}>
               Forgot Password?
             </button>
@@ -239,7 +249,7 @@ function ForgotForm({ onBack, onSent }: { onBack: () => void; onSent: (email: st
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto">
+    <div className="w-full max-w-sm mx-auto" style={{ minHeight: "480px" }}>
       <div className="mb-8">
         <p className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-2" style={{ color: "#2563eb" }}>
           Secure Government Portal
@@ -267,6 +277,9 @@ function ForgotForm({ onBack, onSent }: { onBack: () => void; onSent: (email: st
           </div>
         </div>
 
+        {/* Spacer to match login form height */}
+        <div style={{ height: "88px" }} />
+
         <button type="submit" disabled={loading}
           className={navyBtn + " mt-2"}
           style={{ backgroundColor: loading ? "#374151" : "#0d2137", letterSpacing: "0.04em" }}
@@ -288,7 +301,7 @@ function ForgotForm({ onBack, onSent }: { onBack: () => void; onSent: (email: st
 
       <div className="mt-5 text-center">
         <button type="button" onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:underline focus:outline-none"
+          className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors focus:outline-none border-b border-transparent hover:border-current"
           style={{ color: "#1d4ed8" }}>
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Sign In
         </button>
@@ -383,33 +396,27 @@ function LeftPanel() {
       <DiagonalAccent />
       <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: "#2563eb" }} />
 
-      <div className="relative z-10 px-10 pt-12 pb-10 flex flex-col h-full">
+      <div className="relative z-10 px-10 pt-10 pb-10 flex flex-col h-full">
         {/* Logo + org */}
-        <div className="mb-10">
-          <div className="mb-8">
-            <img src="/taxsync-logo.png" alt="TaxSync Logo" className="h-16 w-auto object-contain bg-white p-2 rounded-lg" />
-          </div>
-
-          <div className="h-px bg-white/10 mb-8" />
-
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-md flex items-center justify-center border border-blue-400/20"
-              style={{ backgroundColor: "#1a3352" }}>
-              <Receipt className="h-4 w-4 text-blue-300" />
+        <div className="mb-8">
+          <div className="flex items-center gap-5 mb-6">
+            <img src="/taxsync-logo.png" alt="TaxSync Logo" className="h-20 w-auto object-contain bg-white p-2 rounded-lg flex-shrink-0" />
+            <div>
+              <h1 className="text-white leading-tight" style={{ fontSize: "1.25rem" }}>
+                Property Taxation &amp;<br />Compliance Reporting System
+              </h1>
             </div>
-            <span className="text-blue-300 text-xs uppercase tracking-widest font-semibold">TaxSync</span>
           </div>
 
-          <h1 className="text-white leading-snug mb-4" style={{ fontSize: "1.35rem" }}>
-            Property Taxation &amp;<br />Compliance Reporting<br />System
-          </h1>
+          <div className="h-px bg-white/10 mb-6" />
+
           <p className="text-sm leading-relaxed" style={{ color: "#93b8d8" }}>
             Secure Davao Region LGU platform for real property tax administration, compliance monitoring, and government reporting across Davao del Sur, Davao del Norte, Davao de Oro, Davao Oriental, Davao Occidental, and Davao City.
           </p>
         </div>
 
         {/* Feature list */}
-        <div className="space-y-5 flex-1">
+        <div className="space-y-4 flex-1">
           {FEATURES.map(({ Icon, label, desc }) => (
             <div key={label} className="flex items-start gap-3.5">
               <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded flex items-center justify-center border border-blue-400/20"
@@ -425,7 +432,7 @@ function LeftPanel() {
         </div>
 
         {/* Bottom notice */}
-        <div className="mt-10 pt-6 border-t border-white/10">
+        <div className="mt-8 pt-5 border-t border-white/10">
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "#4ade80" }} />
             <p className="text-xs font-medium" style={{ color: "#4ade80" }}>Authorized Davao Region LGU Access Only</p>
