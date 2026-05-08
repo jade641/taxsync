@@ -11,7 +11,7 @@ public class TaxRate
     public int? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     
-    public User? Creator { get; set; }
+    public ApplicationUser? Creator { get; set; }
 }
 
 public class TaxAssessment
@@ -36,8 +36,8 @@ public class TaxAssessment
     public DateTime UpdatedAt { get; set; }
     
     public Property Property { get; set; } = null!;
-    public User? Assessor { get; set; }
-    public User? Approver { get; set; }
+    public ApplicationUser? Assessor { get; set; }
+    public ApplicationUser? Approver { get; set; }
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }
 

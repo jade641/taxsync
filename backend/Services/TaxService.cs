@@ -7,11 +7,11 @@ namespace backend.Services;
 
 public class TaxService : ITaxService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly AppDbContext _context;
     private readonly IAuditService _auditService;
     private const decimal SEF_RATE = 0.01m; // 1% Special Education Fund
 
-    public TaxService(ApplicationDbContext context, IAuditService auditService)
+    public TaxService(AppDbContext context, IAuditService auditService)
     {
         _context = context;
         _auditService = auditService;

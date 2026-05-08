@@ -11,9 +11,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build argument for API URL
-ARG VITE_API_URL=http://localhost:5000/api
-ENV VITE_API_URL=$VITE_API_URL
+# Build arguments for stable same-origin API routing
+ARG VITE_RUNTIME_MODE=docker
+ARG VITE_API_BASE_URL=/api
+ENV VITE_RUNTIME_MODE=$VITE_RUNTIME_MODE
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Build the application
 RUN npm run build

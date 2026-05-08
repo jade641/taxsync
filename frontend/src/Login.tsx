@@ -8,6 +8,7 @@ import {
   CheckCircle, Send, ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
+import { apiJson } from "./lib/apiClient";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type AuthState = "login" | "forgot" | "sent";
@@ -104,12 +105,13 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
       return;
     }
     setLoading(true);
-    const result = await login(email, password);
-    setLoading(false);
-    if (result) {
+    try {
+      await login(email, password);
       navigate("/app");
-    } else {
-      setError("Authentication failed. Please verify your credentials.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Authentication failed. Please verify your credentials.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -153,9 +155,9 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
               <Mail className="h-4 w-4 text-slate-400" />
             </div>
             <input
-              id="email" type="email" value={email}
+              id="email" type="text" value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your registered email address"
+              placeholder="Enter your registered email or username"
               required autoComplete="username"
               className={inputCls} onFocus={onFocusStyle} onBlur={onBlurStyle}
             />
@@ -239,13 +241,25 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
 function ForgotForm({ onBack, onSent }: { onBack: () => void; onSent: (email: string) => void }) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setLoading(false);
-    onSent(email);
+    try {
+      await apiJson<{ message?: string }>("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        retries: 4,
+      });
+
+      setLoading(false);
+      onSent(email);
+    } catch (error) {
+      setLoading(false);
+      setError(error instanceof Error ? error.message : "Unable to send reset link.");
+    }
   };
 
   return (
@@ -261,6 +275,12 @@ function ForgotForm({ onBack, onSent }: { onBack: () => void; onSent: (email: st
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {error && (
+          <div className="p-3.5 border rounded flex items-start gap-3" style={{ backgroundColor: "#fef2f2", borderColor: "#fecaca" }}>
+            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#dc2626" }} />
+            <p className="text-xs" style={{ color: "#b91c1c" }}>{error}</p>
+          </div>
+        )}
         <div>
           <label htmlFor="reset-email" className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wider">
             Email Address

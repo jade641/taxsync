@@ -1,28 +1,131 @@
-import { useState } from "react";
-import { UserPlus, Search, Edit2, Shield, Trash2, Mail, X, CheckCircle, AlertCircle, Eye, EyeOff, Lock, Users as UsersIcon, ShieldCheck, ShieldOff } from "lucide-react";
+import { useEffect, useState } from "react";
+import { UserPlus, Search, Edit2, Shield, Trash2, Mail, X, CheckCircle, AlertCircle, Eye, Lock, Users as UsersIcon, ShieldCheck, ShieldOff } from "lucide-react";
 import { useAuth, ROLE_META } from "../context/AuthContext";
 import type { UserRole } from "../context/AuthContext";
 import { AccessDenied } from "../components/RoleGuard";
+import { apiJson } from "../lib/apiClient";
 
-type UserStatus = "Active" | "Inactive";
+type UserStatus = "Active" | "Inactive" | "Pending" | "Suspended";
+
+type ApiUser = {
+  userId: number;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  role: string;
+  status: string;
+  emailVerified: boolean;
+  lastLogin?: string | null;
+};
+
+type ApiUsersResponse = {
+  users: ApiUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 type SystemUser = {
   id: string; name: string; email: string; role: UserRole;
   status: UserStatus; lastLogin: string; department: string;
 };
 
-const INITIAL_USERS: SystemUser[] = [
-  { id:"USR-001", name:"Admin User",      email:"admin@taxsync.gov.ph",      role:"Admin",      status:"Active",   lastLogin:"2026-04-01 08:15", department:"System Administration" },
-  { id:"USR-002", name:"Juan dela Cruz",  email:"accountant@taxsync.gov.ph", role:"Accountant", status:"Active",   lastLogin:"2026-04-01 09:00", department:"Treasury & Finance"    },
-  { id:"USR-003", name:"Maria Santos",    email:"staff@taxsync.gov.ph",      role:"Staff",      status:"Active",   lastLogin:"2026-04-01 07:55", department:"Assessment Division"   },
-  { id:"USR-004", name:"Pedro Reyes",     email:"auditor@taxsync.gov.ph",    role:"Auditor",    status:"Active",   lastLogin:"2026-03-31 14:22", department:"Internal Audit"        },
-  { id:"USR-005", name:"Sarah Connor",    email:"sarah.c@lgu-audit.gov.ph",  role:"Auditor",    status:"Inactive", lastLogin:"2026-01-15 11:45", department:"External Audit"        },
-  { id:"USR-006", name:"Michael Chang",   email:"m.chang@taxsync.gov.ph",    role:"Staff",      status:"Active",   lastLogin:"2026-03-31 16:30", department:"Assessment Division"   },
-];
+const CREATABLE_ROLES: UserRole[] = ["Accountant", "Auditor", "Staff"];
+
+const ROLE_DEPARTMENTS: Record<UserRole, string> = {
+  Admin: "System Administration",
+  Accountant: "Treasury and Finance",
+  Staff: "Assessment Division",
+  Auditor: "Internal Audit",
+};
+
+const toUserRole = (role?: string): UserRole => {
+  switch (role) {
+    case "Admin":
+      return "Admin";
+    case "Accountant":
+      return "Accountant";
+    case "Auditor":
+      return "Auditor";
+    case "Staff":
+      return "Staff";
+    case "TaxOfficer":
+    case "Taxpayer":
+      return "Staff";
+    default:
+      return "Staff";
+  }
+};
+
+const toUserStatus = (status?: string): UserStatus => {
+  switch (status) {
+    case "Active":
+      return "Active";
+    case "Inactive":
+      return "Inactive";
+    case "Pending":
+      return "Pending";
+    case "Suspended":
+      return "Suspended";
+    default:
+      return "Inactive";
+  }
+};
+
+const formatLastLogin = (value?: string | null) => {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Never";
+  return date.toLocaleString();
+};
+
+const mapApiUser = (apiUser: ApiUser): SystemUser => {
+  const role = toUserRole(apiUser.role);
+  const fullName = `${apiUser.firstName ?? ""} ${apiUser.lastName ?? ""}`.trim();
+  const name = fullName || apiUser.username || apiUser.email;
+
+  return {
+    id: String(apiUser.userId),
+    name,
+    email: apiUser.email,
+    role,
+    status: toUserStatus(apiUser.status),
+    lastLogin: formatLastLogin(apiUser.lastLogin),
+    department: ROLE_DEPARTMENTS[role] ?? "General",
+  };
+};
+
+const splitFullName = (value: string) => {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  const parts = normalized.split(" ").filter(Boolean);
+  if (parts.length < 2) return null;
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+};
+
+const buildUsername = (email: string, fallback: string) => {
+  const localPart = email.split("@")[0] ?? "";
+  const base = localPart || fallback.replace(/\s+/g, ".");
+  const cleaned = base.toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  const trimmed = cleaned.slice(0, 50);
+  if (trimmed.length >= 3) return trimmed;
+  const suffix = Date.now().toString().slice(-6);
+  return `user${suffix}`.slice(0, 50);
+};
 
 const DEPARTMENTS = ["Treasury & Finance","System Administration","Assessment Division","Internal Audit","External Audit","Management","IT Department","Records Management"];
 type ModalMode = "add"|"edit"|"delete"|"view"|null;
-const EMPTY_FORM = { name:"", email:"", role:"Staff" as UserRole, status:"Active" as UserStatus, department:"Operations", password:"" };
+const EMPTY_FORM = { name:"", email:"", role:"Staff" as UserRole, status:"Active" as UserStatus, department:"Assessment Division" };
+const DEFAULT_PASSWORD_NOTICE = "New accounts use the default initial password configured by the backend.";
+
+const getRoleOptions = (mode: ModalMode, selectedRole?: UserRole): UserRole[] => {
+  if (mode === "edit" && selectedRole === "Admin") {
+    return ["Admin", ...CREATABLE_ROLES];
+  }
+
+  return CREATABLE_ROLES;
+};
 
 // Permission summary per role
 const PERMISSION_SUMMARY: Record<UserRole, { module: string; access: string }[]> = {
@@ -80,7 +183,8 @@ export default function Users() {
     return <AccessDenied requiredRole="Admin" />;
   }
 
-  const [users,      setUsers]     = useState<SystemUser[]>(INITIAL_USERS);
+  const [users,      setUsers]     = useState<SystemUser[]>([]);
+  const [loading,    setLoading]   = useState(false);
   const [modal,      setModal]     = useState<ModalMode>(null);
   const [selected,   setSelected]  = useState<SystemUser | null>(null);
   const [form,       setForm]      = useState(EMPTY_FORM);
@@ -88,12 +192,28 @@ export default function Users() {
   const [roleFilter, setRoleFilter]= useState("All Roles");
   const [statFilter, setStatFilter]= useState("All");
   const [toast,      setToast]     = useState<{ msg: string; type: "success"|"error" } | null>(null);
-  const [showPw,     setShowPw]    = useState(false);
   const [activeRoleTab, setActiveRoleTab] = useState<UserRole>("Admin");
 
   const showToast = (msg: string, type: "success"|"error" = "success") => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3000);
   };
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const data = await apiJson<ApiUsersResponse>("/users");
+      setUsers(data.users.map(mapApiUser));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load users.";
+      showToast(message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsers();
+  }, []);
 
   const filteredUsers = users.filter((u) => {
     const mS = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()) || u.role.toLowerCase().includes(search.toLowerCase());
@@ -103,31 +223,120 @@ export default function Users() {
   });
 
   const openAdd  = () => { setForm(EMPTY_FORM); setSelected(null); setModal("add"); };
-  const openEdit = (u: SystemUser) => { setSelected(u); setForm({ name:u.name, email:u.email, role:u.role, status:u.status, department:u.department, password:"" }); setModal("edit"); };
+  const openEdit = (u: SystemUser) => { setSelected(u); setForm({ name:u.name, email:u.email, role:u.role, status:u.status, department:u.department }); setModal("edit"); };
   const openView = (u: SystemUser) => { setSelected(u); setModal("view"); };
   const openDel  = (u: SystemUser) => { setSelected(u); setModal("delete"); };
 
-  const handleSave = () => {
-    if (!form.name.trim() || !form.email.trim()) { showToast("Fill in all required fields.", "error"); return; }
-    if (modal === "add") {
-      setUsers((p) => [...p, { id:`USR-${String(p.length+1).padStart(3,"0")}`, name:form.name, email:form.email, role:form.role, status:form.status, department:form.department, lastLogin:"Never" }]);
-      showToast(`User "${form.name}" created.`);
-    } else if (modal === "edit" && selected) {
-      setUsers((p) => p.map((u) => u.id===selected.id ? {...u,name:form.name,email:form.email,role:form.role,status:form.status,department:form.department} : u));
-      showToast(`User "${form.name}" updated.`);
+  const updateUserStatus = async (userId: string, status: UserStatus, silent = false) => {
+    await apiJson<{ message: string }>(`/users/${userId}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+
+    setUsers((p) => p.map((u) => (u.id === userId ? { ...u, status } : u)));
+    if (!silent) {
+      showToast(`User status set to ${status}.`);
     }
-    setModal(null);
   };
 
-  const handleDelete = () => {
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.email.trim()) {
+      showToast("Fill in all required fields.", "error");
+      return;
+    }
+
+    const nameParts = splitFullName(form.name);
+    if (!nameParts) {
+      showToast("Please enter both first and last name.", "error");
+      return;
+    }
+
+    try {
+      if (modal === "add") {
+        const payload = {
+          username: buildUsername(form.email, nameParts.firstName),
+          email: form.email.trim(),
+          firstName: nameParts.firstName,
+          lastName: nameParts.lastName,
+          role: form.role,
+        };
+
+        const created = await apiJson<ApiUser>("/users", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+
+        const createdUser = {
+          ...mapApiUser(created),
+          status: form.status,
+          department: form.department,
+          lastLogin: "Never",
+        };
+
+        setUsers((p) => [createdUser, ...p]);
+
+        if (form.status !== "Active") {
+          await updateUserStatus(createdUser.id, form.status, true);
+        }
+
+        showToast(`User "${createdUser.name}" created with the default initial password.`);
+      } else if (modal === "edit" && selected) {
+        const payload = {
+          email: form.email.trim(),
+          firstName: nameParts.firstName,
+          lastName: nameParts.lastName,
+          role: form.role,
+          status: form.status,
+        };
+
+        const updated = await apiJson<ApiUser>(`/users/${selected.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+
+        const updatedUser = {
+          ...mapApiUser(updated),
+          status: form.status,
+          department: form.department,
+        };
+
+        setUsers((p) => p.map((u) => (u.id === selected.id ? updatedUser : u)));
+        showToast(`User "${updatedUser.name}" updated.`);
+      }
+
+      setModal(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to save user.";
+      showToast(message, "error");
+    }
+  };
+
+  const handleDelete = async () => {
     if (!selected) return;
-    setUsers((p) => p.filter((u) => u.id !== selected.id));
-    showToast("User removed from system."); setModal(null);
+
+    try {
+      await apiJson<{ message: string }>(`/users/${selected.id}`, {
+        method: "DELETE",
+      });
+
+      setUsers((p) => p.filter((u) => u.id !== selected.id));
+      showToast("User removed from system.");
+      setModal(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to delete user.";
+      showToast(message, "error");
+    }
   };
 
-  const toggleStatus = (u: SystemUser) => {
-    setUsers((p) => p.map((x) => x.id===u.id ? {...x, status: x.status==="Active" ? "Inactive" : "Active"} : x));
-    showToast(`${u.name} set to ${u.status==="Active" ? "Inactive" : "Active"}.`);
+  const toggleStatus = async (u: SystemUser) => {
+    const nextStatus: UserStatus = u.status === "Active" ? "Inactive" : "Active";
+
+    try {
+      await updateUserStatus(u.id, nextStatus);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update status.";
+      showToast(message, "error");
+    }
   };
 
   const counts = { total: users.length, active: users.filter(u=>u.status==="Active").length, admin: users.filter(u=>u.role==="Admin").length, inactive: users.filter(u=>u.status==="Inactive").length };
@@ -192,7 +401,7 @@ export default function Users() {
             </select>
             <select value={statFilter} onChange={(e)=>setStatFilter(e.target.value)}
               className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-600 focus:outline-none">
-              <option>All</option><option>Active</option><option>Inactive</option>
+              <option>All</option><option>Active</option><option>Inactive</option><option>Pending</option><option>Suspended</option>
             </select>
           </div>
         </div>
@@ -210,7 +419,9 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredUsers.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Loading users...</td></tr>
+              ) : filteredUsers.length === 0 ? (
                 <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">No users found.</td></tr>
               ) : (
                 filteredUsers.map((u) => {
@@ -332,14 +543,14 @@ export default function Users() {
                   <label className="block text-sm text-slate-700 mb-1.5">Role <span className="text-red-500">*</span></label>
                   <select value={form.role} onChange={(e)=>setForm(f=>({...f,role:e.target.value as UserRole}))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white">
-                    {(["Admin","Accountant","Staff","Auditor"] as UserRole[]).map((r)=><option key={r}>{r}</option>)}
+                    {getRoleOptions(modal, selected?.role).map((r)=><option key={r}>{r}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm text-slate-700 mb-1.5">Status</label>
                   <select value={form.status} onChange={(e)=>setForm(f=>({...f,status:e.target.value as UserStatus}))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white">
-                    <option>Active</option><option>Inactive</option>
+                    <option>Active</option><option>Inactive</option><option>Pending</option><option>Suspended</option>
                   </select>
                 </div>
                 <div className="col-span-2">
@@ -351,13 +562,10 @@ export default function Users() {
                 </div>
                 {modal==="add" && (
                   <div className="col-span-2">
-                    <label className="block text-sm text-slate-700 mb-1.5"><Lock className="h-3.5 w-3.5 inline mr-1"/>Temporary Password <span className="text-red-500">*</span></label>
-                    <div className="relative">
-                      <input type={showPw?"text":"password"} placeholder="Set initial password" value={form.password} onChange={(e)=>setForm(f=>({...f,password:e.target.value}))}
-                        className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"/>
-                      <button type="button" onClick={()=>setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                        {showPw ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-                      </button>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <p className="font-medium"><Lock className="h-3.5 w-3.5 inline mr-1" /> Initial Password Policy</p>
+                      <p className="mt-1 text-amber-800">{DEFAULT_PASSWORD_NOTICE}</p>
+                      <p className="mt-1 text-xs text-amber-700">Users can change it later using the Change Password screen.</p>
                     </div>
                   </div>
                 )}

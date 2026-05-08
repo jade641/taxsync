@@ -139,7 +139,7 @@ public class TaxController : ControllerBase
         }
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Accountant")]
     [HttpPut("rates")]
     public async Task<IActionResult> UpdateTaxRate([FromBody] UpdateTaxRateRequest request)
     {

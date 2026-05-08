@@ -1,6 +1,15 @@
 {
+  "scripts": {
+    "start:backend": "powershell -ExecutionPolicy Bypass -File ./backend/run-dev.ps1",
+    "start:frontend": "powershell -ExecutionPolicy Bypass -File ./frontend/run-dev.ps1",
+    "start:local": "powershell -ExecutionPolicy Bypass -File ./scripts/start-local.ps1",
+    "start:docker": "powershell -ExecutionPolicy Bypass -File ./scripts/start-docker.ps1",
+    "stop:docker": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-docker.ps1"
+  },
   "dependencies": {
-    "framer-motion": "^12.38.0"
+    "axios": "^1.16.0",
+    "framer-motion": "^12.38.0",
+    "react-router-dom": "^7.15.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.27",

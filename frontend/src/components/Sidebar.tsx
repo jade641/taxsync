@@ -172,12 +172,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     <div className="flex items-center gap-1.5">
                       <p className="leading-tight">{module.name}</p>
                       {isReadOnly && (
-                        <Eye
-                          className={`h-3 w-3 flex-shrink-0 ${
-                            isActive ? "text-blue-300" : "text-slate-400"
-                          }`}
+                        <span
+                          className="flex items-center"
                           title="Read-only access"
-                        />
+                          aria-label="Read-only access"
+                        >
+                          <Eye
+                            className={`h-3 w-3 flex-shrink-0 ${
+                              isActive ? "text-blue-300" : "text-slate-400"
+                            }`}
+                          />
+                        </span>
                       )}
                     </div>
                     <p

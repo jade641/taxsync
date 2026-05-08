@@ -1,15 +1,16 @@
 using backend.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Data;
 
-public class ApplicationDbContext : DbContext
+public class AppDbContext : IdentityUserContext<ApplicationUser, int>
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
 
-    public DbSet<User> Users { get; set; }
     public DbSet<Region> Regions { get; set; }
     public DbSet<Province> Provinces { get; set; }
     public DbSet<City> Cities { get; set; }
@@ -25,28 +26,71 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // User configuration
-        modelBuilder.Entity<User>(entity =>
+        modelBuilder.Entity<ApplicationUser>(entity =>
         {
             entity.ToTable("users");
-            entity.HasKey(e => e.UserId);
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-            entity.Property(e => e.Username).HasColumnName("username").HasMaxLength(50);
-            entity.Property(e => e.Email).HasColumnName("email").HasMaxLength(100);
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("user_id");
+            entity.Property(e => e.UserName).HasColumnName("username").HasMaxLength(256);
+            entity.Property(e => e.NormalizedUserName).HasColumnName("normalized_username").HasMaxLength(256);
+            entity.Property(e => e.Email).HasColumnName("email").HasMaxLength(256);
+            entity.Property(e => e.NormalizedEmail).HasColumnName("normalized_email").HasMaxLength(256);
             entity.Property(e => e.PasswordHash).HasColumnName("password_hash").HasMaxLength(255);
+            entity.Property(e => e.PhoneNumber).HasColumnName("phone").HasMaxLength(32);
+            entity.Property(e => e.PhoneNumberConfirmed).HasColumnName("phone_confirmed");
+            entity.Property(e => e.EmailConfirmed).HasColumnName("email_verified");
+            entity.Property(e => e.SecurityStamp).HasColumnName("security_stamp").HasMaxLength(255);
+            entity.Property(e => e.ConcurrencyStamp).HasColumnName("concurrency_stamp").HasMaxLength(255);
+            entity.Property(e => e.TwoFactorEnabled).HasColumnName("two_factor_enabled");
+            entity.Property(e => e.LockoutEnd).HasColumnName("lockout_end");
+            entity.Property(e => e.LockoutEnabled).HasColumnName("lockout_enabled");
+            entity.Property(e => e.AccessFailedCount).HasColumnName("access_failed_count");
             entity.Property(e => e.FirstName).HasColumnName("first_name").HasMaxLength(50);
             entity.Property(e => e.LastName).HasColumnName("last_name").HasMaxLength(50);
-            entity.Property(e => e.Phone).HasColumnName("phone").HasMaxLength(20);
-            entity.Property(e => e.Role).HasColumnName("role").HasConversion<string>();
-            entity.Property(e => e.Status).HasColumnName("status").HasConversion<string>();
-            entity.Property(e => e.EmailVerified).HasColumnName("email_verified");
-            entity.Property(e => e.ProfileImage).HasColumnName("profile_image");
+            entity.Property(e => e.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.ProfileImage).HasColumnName("profile_image").HasMaxLength(255);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
             entity.Property(e => e.LastLogin).HasColumnName("last_login");
+
+            entity.HasIndex(e => e.UserName).IsUnique().HasDatabaseName("ux_users_username");
+            entity.HasIndex(e => e.Email).IsUnique().HasDatabaseName("ux_users_email");
+            entity.HasIndex(e => e.NormalizedUserName).IsUnique().HasDatabaseName("ux_users_normalized_username");
+            entity.HasIndex(e => e.NormalizedEmail).HasDatabaseName("ix_users_normalized_email");
+            entity.HasIndex(e => e.Role).HasDatabaseName("idx_role");
+            entity.HasIndex(e => e.Status).HasDatabaseName("idx_status");
         });
 
-        // Region configuration
+        modelBuilder.Entity<IdentityUserClaim<int>>(entity =>
+        {
+            entity.ToTable("user_claims");
+            entity.Property(e => e.Id).HasColumnName("claim_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.ClaimType).HasColumnName("claim_type").HasMaxLength(256);
+            entity.Property(e => e.ClaimValue).HasColumnName("claim_value");
+            entity.HasIndex(e => e.UserId).HasDatabaseName("idx_user_claims_user_id");
+        });
+
+        modelBuilder.Entity<IdentityUserLogin<int>>(entity =>
+        {
+            entity.ToTable("user_logins");
+            entity.Property(e => e.LoginProvider).HasColumnName("login_provider").HasMaxLength(128);
+            entity.Property(e => e.ProviderKey).HasColumnName("provider_key").HasMaxLength(128);
+            entity.Property(e => e.ProviderDisplayName).HasColumnName("provider_display_name").HasMaxLength(256);
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.HasIndex(e => e.UserId).HasDatabaseName("idx_user_logins_user_id");
+        });
+
+        modelBuilder.Entity<IdentityUserToken<int>>(entity =>
+        {
+            entity.ToTable("user_tokens");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.LoginProvider).HasColumnName("login_provider").HasMaxLength(128);
+            entity.Property(e => e.Name).HasColumnName("token_name").HasMaxLength(128);
+            entity.Property(e => e.Value).HasColumnName("token_value");
+        });
+
         modelBuilder.Entity<Region>(entity =>
         {
             entity.ToTable("regions");
@@ -58,7 +102,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
         });
 
-        // Province configuration
         modelBuilder.Entity<Province>(entity =>
         {
             entity.ToTable("provinces");
@@ -68,13 +111,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ProvinceCode).HasColumnName("province_code").HasMaxLength(20);
             entity.Property(e => e.ProvinceName).HasColumnName("province_name").HasMaxLength(100);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            
+
             entity.HasOne(e => e.Region)
                 .WithMany(r => r.Provinces)
                 .HasForeignKey(e => e.RegionId);
         });
 
-        // City configuration
         modelBuilder.Entity<City>(entity =>
         {
             entity.ToTable("cities");
@@ -85,13 +127,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CityName).HasColumnName("city_name").HasMaxLength(100);
             entity.Property(e => e.CityType).HasColumnName("city_type").HasConversion<string>();
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            
+
             entity.HasOne(e => e.Province)
                 .WithMany(p => p.Cities)
                 .HasForeignKey(e => e.ProvinceId);
         });
 
-        // Barangay configuration
         modelBuilder.Entity<Barangay>(entity =>
         {
             entity.ToTable("barangays");
@@ -101,13 +142,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.BarangayCode).HasColumnName("barangay_code").HasMaxLength(20);
             entity.Property(e => e.BarangayName).HasColumnName("barangay_name").HasMaxLength(100);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            
+
             entity.HasOne(e => e.City)
                 .WithMany(c => c.Barangays)
                 .HasForeignKey(e => e.CityId);
         });
 
-        // Property configuration
         modelBuilder.Entity<Property>(entity =>
         {
             entity.ToTable("properties");
@@ -133,29 +173,28 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Status).HasColumnName("status").HasConversion<string>();
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
-            
+
             entity.HasOne(e => e.Owner)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerId);
-            
+
             entity.HasOne(e => e.Region)
                 .WithMany()
                 .HasForeignKey(e => e.RegionId);
-            
+
             entity.HasOne(e => e.Province)
                 .WithMany()
                 .HasForeignKey(e => e.ProvinceId);
-            
+
             entity.HasOne(e => e.City)
                 .WithMany()
                 .HasForeignKey(e => e.CityId);
-            
+
             entity.HasOne(e => e.Barangay)
                 .WithMany()
                 .HasForeignKey(e => e.BarangayId);
         });
 
-        // PropertyDocument configuration
         modelBuilder.Entity<PropertyDocument>(entity =>
         {
             entity.ToTable("property_documents");
@@ -168,17 +207,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FileSize).HasColumnName("file_size");
             entity.Property(e => e.UploadedBy).HasColumnName("uploaded_by");
             entity.Property(e => e.UploadedAt).HasColumnName("uploaded_at");
-            
+
             entity.HasOne(e => e.Property)
                 .WithMany(p => p.Documents)
                 .HasForeignKey(e => e.PropertyId);
-            
+
             entity.HasOne(e => e.Uploader)
                 .WithMany()
                 .HasForeignKey(e => e.UploadedBy);
         });
 
-        // TaxRate configuration
         modelBuilder.Entity<TaxRate>(entity =>
         {
             entity.ToTable("tax_rates");
@@ -191,13 +229,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            
+
             entity.HasOne(e => e.Creator)
                 .WithMany()
                 .HasForeignKey(e => e.CreatedBy);
         });
 
-        // TaxAssessment configuration
         modelBuilder.Entity<TaxAssessment>(entity =>
         {
             entity.ToTable("tax_assessments");
@@ -220,21 +257,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
-            
+
             entity.HasOne(e => e.Property)
                 .WithMany(p => p.TaxAssessments)
                 .HasForeignKey(e => e.PropertyId);
-            
+
             entity.HasOne(e => e.Assessor)
                 .WithMany()
                 .HasForeignKey(e => e.AssessedBy);
-            
+
             entity.HasOne(e => e.Approver)
                 .WithMany()
                 .HasForeignKey(e => e.ApprovedBy);
         });
 
-        // Payment configuration
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.ToTable("payments");
@@ -255,21 +291,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
-            
+
             entity.HasOne(e => e.Assessment)
                 .WithMany(a => a.Payments)
                 .HasForeignKey(e => e.AssessmentId);
-            
+
             entity.HasOne(e => e.Payer)
                 .WithMany()
                 .HasForeignKey(e => e.PayerId);
-            
+
             entity.HasOne(e => e.Processor)
                 .WithMany()
                 .HasForeignKey(e => e.ProcessedBy);
         });
 
-        // AuditLog configuration
         modelBuilder.Entity<AuditLog>(entity =>
         {
             entity.ToTable("activity_logs");
@@ -283,7 +318,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IpAddress).HasColumnName("ip_address").HasMaxLength(45);
             entity.Property(e => e.UserAgent).HasColumnName("user_agent");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            
+
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId);

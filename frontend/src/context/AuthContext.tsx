@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { apiJson } from "../lib/apiClient";
 
 export type UserRole = "Admin" | "Accountant" | "Staff" | "Auditor";
 export type Permission = string;
@@ -10,6 +11,21 @@ export type User = {
   role: UserRole;
   department: string;
   initials: string;
+};
+
+type ApiUser = {
+  userId: number;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  status: string;
+};
+
+type ApiLoginResponse = {
+  token: string;
+  user: ApiUser;
 };
 
 type RoleMeta = {
@@ -60,6 +76,8 @@ export const ROLE_META: Record<UserRole, RoleMeta> = {
     color: "slate",
   },
 };
+
+const AUTH_TOKEN_KEY = "taxsync.token";
 
 const PERMISSIONS_BY_ROLE: Record<UserRole, Permission[]> = {
   Admin: [
@@ -142,19 +160,11 @@ const ROLE_DEPARTMENTS: Record<UserRole, string> = {
   Auditor: "Internal Audit",
 };
 
-const DEFAULT_USER: User = {
-  id: "USR-001",
-  name: "Admin User",
-  email: "admin@taxsync.gov.ph",
-  role: "Admin",
-  department: ROLE_DEPARTMENTS.Admin,
-  initials: "AU",
-};
 
 type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   hasPermission: (permission: Permission) => boolean;
   can: (permission: Permission) => boolean;
@@ -163,7 +173,7 @@ type AuthContextValue = {
 const DEFAULT_AUTH: AuthContextValue = {
   user: null,
   isAuthenticated: false,
-  login: async () => false,
+  login: async () => undefined,
   logout: () => undefined,
   hasPermission: () => false,
   can: () => false,
@@ -171,22 +181,25 @@ const DEFAULT_AUTH: AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue>(DEFAULT_AUTH);
 
-const getRoleFromEmail = (email: string): UserRole => {
-  const value = email.toLowerCase();
-  if (value.includes("admin")) return "Admin";
-  if (value.includes("account")) return "Accountant";
-  if (value.includes("audit")) return "Auditor";
-  return "Staff";
+const mapRole = (role?: string): UserRole => {
+  switch (role) {
+    case "Admin":
+      return "Admin";
+    case "Accountant":
+      return "Accountant";
+    case "Auditor":
+      return "Auditor";
+    case "Staff":
+      return "Staff";
+    default:
+      return "Staff";
+  }
 };
 
-const buildUserFromEmail = (email: string): User => {
-  const role = getRoleFromEmail(email);
-  const namePart = email.split("@")[0] || "User";
-  const name = namePart
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+const buildUserFromApi = (apiUser: ApiUser): User => {
+  const role = mapRole(apiUser.role);
+  const fullName = `${apiUser.firstName ?? ""} ${apiUser.lastName ?? ""}`.trim();
+  const name = fullName || apiUser.username || "User";
   const initials = name
     .split(" ")
     .filter(Boolean)
@@ -196,12 +209,12 @@ const buildUserFromEmail = (email: string): User => {
     .toUpperCase();
 
   return {
-    id: DEFAULT_USER.id,
-    name: name || DEFAULT_USER.name,
-    email,
+    id: String(apiUser.userId),
+    name,
+    email: apiUser.email,
     role,
-    department: ROLE_DEPARTMENTS[role],
-    initials: initials || DEFAULT_USER.initials,
+    department: ROLE_DEPARTMENTS[role] ?? "General",
+    initials: initials || "U",
   };
 };
 
@@ -214,12 +227,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const login = async (email: string, password: string) => {
-    if (!email || !password) return false;
-    setUser(buildUserFromEmail(email));
-    return true;
+    if (!email || !password) {
+      throw new Error("Email and password are required.");
+    }
+
+    const data = await apiJson<ApiLoginResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username: email, password }),
+      retries: 4,
+      timeoutMs: 12000,
+    });
+
+    if (!data?.token || !data?.user) {
+      throw new Error("The server returned an invalid login response.");
+    }
+
+    setUser(buildUserFromApi(data.user));
+    localStorage.setItem(AUTH_TOKEN_KEY, data.token);
   };
 
   const logout = () => {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
     setUser(null);
   };
 

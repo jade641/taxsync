@@ -1,13 +1,14 @@
-import { FormHTMLAttributes, ReactNode } from "react";
+import type { FormEvent, FormHTMLAttributes, ReactNode } from "react";
 import { usePermissions } from "../context/PermissionContext";
 import { AlertTriangle } from "lucide-react";
 
-interface PermissionFormProps extends FormHTMLAttributes<HTMLFormElement> {
+type PermissionFormProps = Omit<FormHTMLAttributes<HTMLFormElement>, "onSubmit"> & {
   children: ReactNode;
   requireWrite?: boolean;
   requireFull?: boolean;
   showWarning?: boolean;
-}
+  onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+};
 
 export default function PermissionForm({
   children,
@@ -27,7 +28,7 @@ export default function PermissionForm({
     ? currentModulePermission === "write" || currentModulePermission === "full"
     : true;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     // Prevent submission if user doesn't have permission
@@ -35,9 +36,7 @@ export default function PermissionForm({
       return;
     }
 
-    if (onSubmit) {
-      onSubmit(e);
-    }
+    onSubmit?.(e);
   };
 
   return (

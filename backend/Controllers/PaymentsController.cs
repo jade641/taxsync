@@ -1,138 +1,107 @@
-using backend.DTOs;
+using backend.Data;
 using backend.Models;
-using backend.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class PaymentsController : ControllerBase
 {
-    private readonly IPaymentService _paymentService;
+    private readonly AppDbContext _context;
 
-    public PaymentsController(IPaymentService paymentService)
+    public PaymentsController(AppDbContext context)
     {
-        _paymentService = paymentService;
+        _context = context;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetPayments([FromQuery] int? assessmentId = null, [FromQuery] int? payerId = null, 
-        [FromQuery] string? status = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<ActionResult<IEnumerable<Payment>>> GetPayments()
     {
-        try
-        {
-            PaymentStatus? statusEnum = null;
-            if (!string.IsNullOrEmpty(status) && Enum.TryParse<PaymentStatus>(status, true, out var s))
-            {
-                statusEnum = s;
-            }
-
-            var payments = await _paymentService.GetPaymentsAsync(assessmentId, payerId, statusEnum, page, pageSize);
-            return Ok(new { payments, page, pageSize });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var payments = await _context.Payments.AsNoTracking().ToListAsync();
+        return Ok(payments);
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetPayment(int id)
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Payment>> GetPayment(int id)
     {
-        try
+        var payment = await _context.Payments.FindAsync(id);
+        if (payment == null)
         {
-            var payment = await _paymentService.GetPaymentByIdAsync(id);
-            if (payment == null)
-            {
-                return NotFound(new { message = "Payment not found" });
-            }
+            return NotFound();
+        }
 
-            return Ok(payment);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return Ok(payment);
     }
 
-    [Authorize(Roles = "Admin,Accountant,Staff")]
     [HttpPost]
-    public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentRequest request)
+    public async Task<ActionResult<Payment>> CreatePayment([FromBody] Payment payment)
     {
-        try
+        if (payment.PaymentDate == default)
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var payment = await _paymentService.CreatePaymentAsync(request, currentUserId);
-            return CreatedAtAction(nameof(GetPayment), new { id = payment.PaymentId }, payment);
+            payment.PaymentDate = DateTime.UtcNow;
         }
-        catch (Exception ex)
+
+        if (payment.CreatedAt == default)
         {
-            return BadRequest(new { message = ex.Message });
+            payment.CreatedAt = DateTime.UtcNow;
         }
+
+        payment.UpdatedAt = DateTime.UtcNow;
+
+        _context.Payments.Add(payment);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetPayment), new { id = payment.PaymentId }, payment);
     }
 
-    [HttpGet("{id}/receipt")]
-    public async Task<IActionResult> GetPaymentReceipt(int id)
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdatePayment(int id, [FromBody] Payment payment)
     {
-        try
+        if (id != payment.PaymentId)
         {
-            var receipt = await _paymentService.GetPaymentReceiptAsync(id);
-            if (receipt == null)
-            {
-                return NotFound(new { message = "Receipt not found or payment not completed" });
-            }
+            return BadRequest();
+        }
 
-            return Ok(receipt);
-        }
-        catch (Exception ex)
+        var existing = await _context.Payments.FindAsync(id);
+        if (existing == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return NotFound();
         }
+
+        existing.AssessmentId = payment.AssessmentId;
+        existing.PayerId = payment.PayerId;
+        existing.PaymentReference = payment.PaymentReference;
+        existing.PaymentMethod = payment.PaymentMethod;
+        existing.AmountPaid = payment.AmountPaid;
+        existing.PaymentDate = payment.PaymentDate == default ? existing.PaymentDate : payment.PaymentDate;
+        existing.TransactionId = payment.TransactionId;
+        existing.BankName = payment.BankName;
+        existing.CheckNumber = payment.CheckNumber;
+        existing.Status = payment.Status;
+        existing.ReceiptNumber = payment.ReceiptNumber;
+        existing.ProcessedBy = payment.ProcessedBy;
+        existing.Notes = payment.Notes;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(existing);
     }
 
-    [Authorize(Roles = "Admin,Accountant")]
-    [HttpPut("{id}/status")]
-    public async Task<IActionResult> UpdatePaymentStatus(int id, [FromBody] UpdatePaymentStatusRequest request)
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeletePayment(int id)
     {
-        try
+        var existing = await _context.Payments.FindAsync(id);
+        if (existing == null)
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var success = await _paymentService.UpdatePaymentStatusAsync(id, request.Status, currentUserId);
-
-            if (!success)
-            {
-                return NotFound(new { message = "Payment not found" });
-            }
-
-            return Ok(new { message = "Payment status updated successfully" });
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+
+        _context.Payments.Remove(existing);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
     }
-
-    [Authorize(Roles = "Admin,Accountant,Auditor")]
-    [HttpGet("collections/total")]
-    public async Task<IActionResult> GetTotalCollections([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
-    {
-        try
-        {
-            var total = await _paymentService.GetTotalCollectionsAsync(from, to);
-            return Ok(new { total, from, to });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-}
-
-public class UpdatePaymentStatusRequest
-{
-    public PaymentStatus Status { get; set; }
 }

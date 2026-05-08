@@ -6,9 +6,9 @@ namespace backend.Services;
 
 public class AuditService : IAuditService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly AppDbContext _context;
 
-    public AuditService(ApplicationDbContext context)
+    public AuditService(AppDbContext context)
     {
         _context = context;
     }

@@ -30,10 +30,6 @@ public class CreateUserRequest
     public string Email { get; set; } = string.Empty;
     
     [Required]
-    [MinLength(6)]
-    public string Password { get; set; } = string.Empty;
-    
-    [Required]
     public string FirstName { get; set; } = string.Empty;
     
     [Required]
@@ -43,6 +39,8 @@ public class CreateUserRequest
     
     [Required]
     public UserRole Role { get; set; }
+
+    public string? Password { get; set; }
 }
 
 public class UpdateUserRequest
@@ -53,4 +51,10 @@ public class UpdateUserRequest
     public string? Phone { get; set; }
     public UserRole? Role { get; set; }
     public UserStatus? Status { get; set; }
+}
+
+public class UpdateUserStatusRequest
+{
+    [Required]
+    public UserStatus Status { get; set; }
 }

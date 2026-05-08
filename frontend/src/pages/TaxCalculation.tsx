@@ -38,7 +38,53 @@ function computeTax(assessed: number, basic: number, sef: number) {
 }
 
 const buildRecords = (rates: typeof DEFAULT_RATES): PropertyTaxRecord[] => {
-  return [];
+  const seed: Array<Omit<PropertyTaxRecord, "basicRPTRate" | "sefRate" | "basicTaxDue" | "sefDue" | "totalTaxDue">> = [
+    {
+      id: "DV-0001",
+      ownerName: "Marquez Holdings",
+      barangay: "Bajada",
+      propertyType: "Commercial",
+      assessedValue: 5200000,
+      taxYear: 2026,
+      anomaly: false,
+    },
+    {
+      id: "DV-0014",
+      ownerName: "Santos Family",
+      barangay: "Buhangin",
+      propertyType: "Residential",
+      assessedValue: 1650000,
+      taxYear: 2026,
+      anomaly: false,
+    },
+    {
+      id: "DV-0092",
+      ownerName: "Davao Agro Co.",
+      barangay: "Tugbok",
+      propertyType: "Agricultural",
+      assessedValue: 780000,
+      taxYear: 2026,
+      anomaly: true,
+    },
+  ];
+
+  return seed.map((record) => {
+    const rate = rates[record.propertyType];
+    const { basicTaxDue, sefDue, totalTaxDue } = computeTax(
+      record.assessedValue,
+      rate.basic,
+      rate.sef,
+    );
+
+    return {
+      ...record,
+      basicRPTRate: rate.basic,
+      sefRate: rate.sef,
+      basicTaxDue,
+      sefDue,
+      totalTaxDue,
+    };
+  });
 };
 
 const fmt     = (val: number) => `₱ ${val.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;

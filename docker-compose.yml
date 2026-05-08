@@ -1,25 +1,24 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
     container_name: taxsync-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: taxsync_password
-      MYSQL_DATABASE: TaxsyncDB
-      MYSQL_USER: taxsync_user
-      MYSQL_PASSWORD: taxsync_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-taxsync_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-TaxsyncDB}
+      MYSQL_USER: ${MYSQL_USER:-taxsync_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-taxsync_password}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/TaxsyncDB.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - taxsync-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
 
   backend:
     build:
@@ -27,36 +26,45 @@ services:
       dockerfile: Dockerfile
     container_name: taxsync-backend
     ports:
-      - "5000:80"
-      - "5001:443"
+      - "5000:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Server=mysql;Database=TaxsyncDB;User=root;Password=taxsync_password;
-      - Jwt__Key=your-super-secret-key-min-32-characters-long-for-security-purposes
-      - Jwt__Issuer=TaxSync
-      - Jwt__Audience=TaxSyncUsers
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      TaxSync__RuntimeMode: Docker
+      Https__Redirect: "false"
+      ConnectionStrings__DefaultConnection: Server=mysql;Port=3306;Database=${MYSQL_DATABASE:-TaxsyncDB};User=root;Password=${MYSQL_ROOT_PASSWORD:-taxsync_password};
+      Jwt__Key: ${JWT_KEY:-your-super-secret-key-min-32-characters-long-for-security-purposes}
+      Jwt__Issuer: ${JWT_ISSUER:-TaxSync}
+      Jwt__Audience: ${JWT_AUDIENCE:-TaxSyncUsers}
+      Frontend__BaseUrl: ${FRONTEND_PUBLIC_URL:-http://localhost:3000}
+      Cors__AllowedOrigins__0: ${FRONTEND_PUBLIC_URL:-http://localhost:3000}
+      Cors__AllowedOrigins__1: http://127.0.0.1:3000
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/health || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
     networks:
       - taxsync-network
-    restart: unless-stopped
-
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://localhost:5000/api
+        VITE_RUNTIME_MODE: docker
+        VITE_API_BASE_URL: /api
     container_name: taxsync-frontend
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - taxsync-network
-    restart: unless-stopped
 
 volumes:
   mysql_data:

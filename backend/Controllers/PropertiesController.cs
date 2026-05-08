@@ -1,156 +1,107 @@
-using backend.DTOs;
+using backend.Data;
 using backend.Models;
-using backend.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class PropertiesController : ControllerBase
 {
-    private readonly IPropertyService _propertyService;
+    private readonly AppDbContext _context;
 
-    public PropertiesController(IPropertyService propertyService)
+    public PropertiesController(AppDbContext context)
     {
-        _propertyService = propertyService;
+        _context = context;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetProperties([FromQuery] int? ownerId = null, [FromQuery] string? propertyType = null, 
-        [FromQuery] string? status = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<ActionResult<IEnumerable<Property>>> GetProperties()
     {
-        try
-        {
-            PropertyType? typeEnum = null;
-            if (!string.IsNullOrEmpty(propertyType) && Enum.TryParse<PropertyType>(propertyType, true, out var t))
-            {
-                typeEnum = t;
-            }
-
-            PropertyStatus? statusEnum = null;
-            if (!string.IsNullOrEmpty(status) && Enum.TryParse<PropertyStatus>(status, true, out var s))
-            {
-                statusEnum = s;
-            }
-
-            var properties = await _propertyService.GetPropertiesAsync(ownerId, typeEnum, statusEnum, page, pageSize);
-            var total = await _propertyService.GetPropertiesCountAsync(ownerId, typeEnum, statusEnum);
-
-            return Ok(new { properties, total, page, pageSize });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var properties = await _context.Properties.AsNoTracking().ToListAsync();
+        return Ok(properties);
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetProperty(int id)
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Property>> GetProperty(int id)
     {
-        try
+        var property = await _context.Properties.FindAsync(id);
+        if (property == null)
         {
-            var property = await _propertyService.GetPropertyByIdAsync(id);
-            if (property == null)
-            {
-                return NotFound(new { message = "Property not found" });
-            }
+            return NotFound();
+        }
 
-            return Ok(property);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return Ok(property);
     }
 
-    [Authorize(Roles = "Admin,Staff")]
     [HttpPost]
-    public async Task<IActionResult> CreateProperty([FromBody] CreatePropertyRequest request)
+    public async Task<ActionResult<Property>> CreateProperty([FromBody] Property property)
     {
-        try
+        if (property.CreatedAt == default)
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var property = await _propertyService.CreatePropertyAsync(request, currentUserId);
-            return CreatedAtAction(nameof(GetProperty), new { id = property.PropertyId }, property);
+            property.CreatedAt = DateTime.UtcNow;
         }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+
+        property.UpdatedAt = DateTime.UtcNow;
+
+        _context.Properties.Add(property);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetProperty), new { id = property.PropertyId }, property);
     }
 
-    [Authorize(Roles = "Admin,Staff")]
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProperty(int id, [FromBody] UpdatePropertyRequest request)
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdateProperty(int id, [FromBody] Property property)
     {
-        try
+        if (id != property.PropertyId)
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var property = await _propertyService.UpdatePropertyAsync(id, request, currentUserId);
-
-            if (property == null)
-            {
-                return NotFound(new { message = "Property not found" });
-            }
-
-            return Ok(property);
+            return BadRequest();
         }
-        catch (Exception ex)
+
+        var existing = await _context.Properties.FindAsync(id);
+        if (existing == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return NotFound();
         }
+
+        existing.OwnerId = property.OwnerId;
+        existing.PropertyType = property.PropertyType;
+        existing.PropertyNumber = property.PropertyNumber;
+        existing.TitleNumber = property.TitleNumber;
+        existing.AddressLine1 = property.AddressLine1;
+        existing.AddressLine2 = property.AddressLine2;
+        existing.RegionId = property.RegionId;
+        existing.ProvinceId = property.ProvinceId;
+        existing.CityId = property.CityId;
+        existing.BarangayId = property.BarangayId;
+        existing.PostalCode = property.PostalCode;
+        existing.LotArea = property.LotArea;
+        existing.FloorArea = property.FloorArea;
+        existing.MarketValue = property.MarketValue;
+        existing.AssessedValue = property.AssessedValue;
+        existing.YearAcquired = property.YearAcquired;
+        existing.RegistrationDate = property.RegistrationDate;
+        existing.Status = property.Status;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(existing);
     }
 
-    [Authorize(Roles = "Admin")]
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteProperty(int id)
     {
-        try
+        var existing = await _context.Properties.FindAsync(id);
+        if (existing == null)
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var success = await _propertyService.DeletePropertyAsync(id, currentUserId);
-
-            if (!success)
-            {
-                return NotFound(new { message = "Property not found" });
-            }
-
-            return Ok(new { message = "Property deleted successfully" });
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+
+        _context.Properties.Remove(existing);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
     }
-
-    [Authorize(Roles = "Admin,Staff")]
-    [HttpPut("{id}/status")]
-    public async Task<IActionResult> UpdatePropertyStatus(int id, [FromBody] UpdatePropertyStatusRequest request)
-    {
-        try
-        {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var success = await _propertyService.UpdatePropertyStatusAsync(id, request.Status, currentUserId);
-
-            if (!success)
-            {
-                return NotFound(new { message = "Property not found" });
-            }
-
-            return Ok(new { message = "Property status updated successfully" });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-}
-
-public class UpdatePropertyStatusRequest
-{
-    public PropertyStatus Status { get; set; }
 }

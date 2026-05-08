@@ -12,7 +12,7 @@ public class AuditLog
     public string? UserAgent { get; set; }
     public DateTime CreatedAt { get; set; }
     
-    public User? User { get; set; }
+    public ApplicationUser? User { get; set; }
 }
 
 public enum LogSeverity

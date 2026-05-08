@@ -1,15 +1,15 @@
+using System.Security.Claims;
 using backend.DTOs;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace backend.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -19,166 +19,144 @@ public class UsersController : ControllerBase
         _userService = userService;
     }
 
-    [Authorize(Roles = "Admin")]
     [HttpGet]
-    public async Task<IActionResult> GetUsers([FromQuery] string? role = null, [FromQuery] string? status = null, 
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<IActionResult> GetUsers(
+        [FromQuery] UserRole? role = null,
+        [FromQuery] UserStatus? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
-        try
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var users = await _userService.GetUsersAsync(role, status, page, pageSize);
+        var total = await _userService.GetUsersCountAsync(role, status);
+
+        return Ok(new
         {
-            UserRole? roleEnum = null;
-            if (!string.IsNullOrEmpty(role) && Enum.TryParse<UserRole>(role, true, out var r))
-            {
-                roleEnum = r;
-            }
-
-            UserStatus? statusEnum = null;
-            if (!string.IsNullOrEmpty(status) && Enum.TryParse<UserStatus>(status, true, out var s))
-            {
-                statusEnum = s;
-            }
-
-            var users = await _userService.GetUsersAsync(roleEnum, statusEnum, page, pageSize);
-            var total = await _userService.GetUsersCountAsync(roleEnum, statusEnum);
-
-            return Ok(new { users, total, page, pageSize });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+            users,
+            total,
+            page,
+            pageSize
+        });
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public async Task<IActionResult> GetUser(int id)
     {
-        try
+        var user = await _userService.GetUserByIdAsync(id);
+        if (user == null)
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-
-            // Users can only view their own profile unless they're Admin
-            if (currentUserId != id && currentUserRole != "Admin")
-            {
-                return Forbid();
-            }
-
-            var user = await _userService.GetUserByIdAsync(id);
-            if (user == null)
-            {
-                return NotFound(new { message = "User not found" });
-            }
-
-            return Ok(user);
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+
+        return Ok(user);
     }
 
-    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+        {
+            return Unauthorized(new { message = "Unable to identify current user." });
+        }
+
         try
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var user = await _userService.CreateUserAsync(request, currentUserId);
-            return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user);
+            var createdUser = await _userService.CreateUserAsync(request, currentUserId.Value);
+            return CreatedAtAction(nameof(GetUser), new { id = createdUser.UserId }, createdUser);
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
     {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+        {
+            return Unauthorized(new { message = "Unable to identify current user." });
+        }
+
         try
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-
-            // Users can only update their own profile unless they're Admin
-            if (currentUserId != id && currentUserRole != "Admin")
+            var updatedUser = await _userService.UpdateUserAsync(id, request, currentUserId.Value);
+            if (updatedUser == null)
             {
-                return Forbid();
+                return NotFound();
             }
 
-            // Only Admin can change roles
-            if (request.Role.HasValue && currentUserRole != "Admin")
-            {
-                return Forbid();
-            }
-
-            var user = await _userService.UpdateUserAsync(id, request, currentUserId);
-            if (user == null)
-            {
-                return NotFound(new { message = "User not found" });
-            }
-
-            return Ok(user);
+            return Ok(updatedUser);
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
 
-    [Authorize(Roles = "Admin")]
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteUser(int id)
-    {
-        try
-        {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            
-            // Prevent self-deletion
-            if (currentUserId == id)
-            {
-                return BadRequest(new { message = "Cannot delete your own account" });
-            }
-
-            var success = await _userService.DeleteUserAsync(id, currentUserId);
-            if (!success)
-            {
-                return NotFound(new { message = "User not found" });
-            }
-
-            return Ok(new { message = "User deleted successfully" });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpPut("{id}/status")]
+    [HttpPut("{id:int}/status")]
     public async Task<IActionResult> UpdateUserStatus(int id, [FromBody] UpdateUserStatusRequest request)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var success = await _userService.UpdateUserStatusAsync(id, request.Status, currentUserId);
-
-            if (!success)
-            {
-                return NotFound(new { message = "User not found" });
-            }
-
-            return Ok(new { message = "User status updated successfully" });
+            return ValidationProblem(ModelState);
         }
-        catch (Exception ex)
+
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return Unauthorized(new { message = "Unable to identify current user." });
         }
+
+        var updated = await _userService.UpdateUserStatusAsync(id, request.Status, currentUserId.Value);
+        if (!updated)
+        {
+            return NotFound();
+        }
+
+        return Ok(new { message = $"User status updated to {request.Status}." });
     }
-}
 
-public class UpdateUserStatusRequest
-{
-    public UserStatus Status { get; set; }
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+        {
+            return Unauthorized(new { message = "Unable to identify current user." });
+        }
+
+        var deleted = await _userService.DeleteUserAsync(id, currentUserId.Value);
+        if (!deleted)
+        {
+            return NotFound();
+        }
+
+        return Ok(new { message = "User deleted successfully." });
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(value, out var userId))
+        {
+            return userId;
+        }
+
+        return null;
+    }
 }

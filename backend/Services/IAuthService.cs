@@ -5,12 +5,12 @@ namespace backend.Services;
 
 public interface IAuthService
 {
-    Task<LoginResponse?> LoginAsync(LoginRequest request);
+    Task<LoginResult> LoginAsync(LoginRequest request);
     Task<UserDto> RegisterAsync(RegisterRequest request);
     Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest request);
-    Task<User?> GetUserByIdAsync(int userId);
-    Task<User?> GetUserByUsernameAsync(string username);
-    string GenerateJwtToken(User user);
+    Task<ApplicationUser?> GetUserByIdAsync(int userId);
+    Task<ApplicationUser?> GetUserByUsernameAsync(string username);
+    string GenerateJwtToken(ApplicationUser user);
     string HashPassword(string password);
     bool VerifyPassword(string password, string hash);
 }

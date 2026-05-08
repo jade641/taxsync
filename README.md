@@ -23,7 +23,7 @@ This system provides comprehensive property tax management, payment processing, 
 - **Backend**: ASP.NET Core Web API (.NET 10.0) with Entity Framework Core
 - **Frontend**: React.js 19 + TypeScript + Tailwind CSS 4
 - **Database**: MySQL 8.0+
-- **Authentication**: JWT with BCrypt password hashing
+- **Authentication**: JWT with ASP.NET Identity PBKDF2 password hashing
 - **API Documentation**: Swagger/OpenAPI
 
 ## 📋 Prerequisites
@@ -34,6 +34,24 @@ This system provides comprehensive property tax management, payment processing, 
 - Git
 
 ## 🚀 Quick Start
+
+For stable local and Docker startup, see [docs/startup-connectivity.md](docs/startup-connectivity.md).
+
+### Recommended Local Startup
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
+```
+
+This starts the backend on `http://localhost:5000`, waits for `http://localhost:5000/api/health`, then starts Vite on `http://127.0.0.1:5173` with a stable `/api` proxy.
+
+### Recommended Docker Startup
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1
+```
+
+Docker mode serves the frontend at `http://localhost:3000`, exposes the backend at `http://localhost:5000`, and keeps MySQL on host port `3307` so it does not overlap with local MySQL.
 
 ### 1. Clone the Repository
 
@@ -65,11 +83,11 @@ dotnet restore
 # Update connection string in appsettings.json
 # Edit: "Server=localhost;Database=TaxsyncDB;User=root;Password=YOUR_PASSWORD;"
 
-# Run the application
-dotnet run
+# Run the application on the fixed local port
+powershell -ExecutionPolicy Bypass -File .\run-dev.ps1
 ```
 
-The API will be available at `https://localhost:5001` or `http://localhost:5000`
+The API will be available at `http://localhost:5000`
 
 Swagger documentation: `http://localhost:5000/swagger`
 
@@ -81,34 +99,21 @@ cd frontend
 # Install dependencies
 npm install
 
-# Create .env file
-echo "VITE_API_URL=http://localhost:5000/api" > .env
-
 # Run development server
-npm run dev
+powershell -ExecutionPolicy Bypass -File .\run-dev.ps1
 ```
 
-The frontend will be available at `http://localhost:5173`
+The frontend will be available at `http://127.0.0.1:5173`
 
-## 🔐 Default Test Credentials
+## 🔐 Bootstrap Admin Credentials
 
 ```
-Admin Account:
+Email: jcanlubopaye@gmail.com
 Username: admin
-Password: password123
-
-Accountant Account:
-Username: accountant1
-Password: password123
-
-Auditor Account:
-Username: auditor1
-Password: password123
-
-Staff Account:
-Username: staff1
-Password: password123
+Initial password: TaxSyncAdmin#2026
 ```
+
+The startup bootstrap only creates the admin if it is missing and only repairs authentication-critical fields when required. It does not reset the admin password on every launch.
 
 ## 📁 Project Structure
 
@@ -199,10 +204,14 @@ property-taxation-system/
 }
 ```
 
-### Frontend Configuration (.env)
+### Frontend Configuration (frontend/.env.development)
 
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_RUNTIME_MODE=local
+VITE_DEV_HOST=127.0.0.1
+VITE_DEV_PORT=5173
+VITE_API_BASE_URL=/api
+VITE_API_PROXY_TARGET=http://localhost:5000
 ```
 
 ## 📊 API Endpoints
@@ -375,18 +384,23 @@ services:
   backend:
     build: ./backend
     ports:
-      - "5000:80"
+      - "5000:8080"
     environment:
-      ConnectionStrings__DefaultConnection: "Server=mysql;Database=TaxsyncDB;User=root;Password=your_password;"
+      ASPNETCORE_URLS: "http://+:8080"
+      TaxSync__RuntimeMode: "Docker"
+      Https__Redirect: "false"
+      ConnectionStrings__DefaultConnection: "Server=mysql;Port=3306;Database=TaxsyncDB;User=root;Password=your_password;"
     depends_on:
       - mysql
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_RUNTIME_MODE: docker
+        VITE_API_BASE_URL: /api
     ports:
       - "3000:80"
-    environment:
-      VITE_API_URL: "http://localhost:5000/api"
     depends_on:
       - backend
 
@@ -396,7 +410,7 @@ volumes:
 
 Run with:
 ```bash
-docker-compose up -d
+powershell -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1
 ```
 
 ## 📝 Development Notes

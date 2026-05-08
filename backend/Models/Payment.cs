@@ -20,8 +20,8 @@ public class Payment
     public DateTime UpdatedAt { get; set; }
     
     public TaxAssessment Assessment { get; set; } = null!;
-    public User Payer { get; set; } = null!;
-    public User? Processor { get; set; }
+    public ApplicationUser Payer { get; set; } = null!;
+    public ApplicationUser? Processor { get; set; }
 }
 
 public enum PaymentMethod

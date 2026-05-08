@@ -6,9 +6,9 @@ namespace backend.Services;
 
 public class GeographyService : IGeographyService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly AppDbContext _context;
 
-    public GeographyService(ApplicationDbContext context)
+    public GeographyService(AppDbContext context)
     {
         _context = context;
     }

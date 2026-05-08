@@ -7,10 +7,10 @@ namespace backend.Services;
 
 public class PaymentService : IPaymentService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly AppDbContext _context;
     private readonly IAuditService _auditService;
 
-    public PaymentService(ApplicationDbContext context, IAuditService auditService)
+    public PaymentService(AppDbContext context, IAuditService auditService)
     {
         _context = context;
         _auditService = auditService;

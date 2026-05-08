@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { usePermissions } from "../context/PermissionContext";
 import { Lock } from "lucide-react";
 

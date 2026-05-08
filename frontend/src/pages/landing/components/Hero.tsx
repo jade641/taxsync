@@ -49,7 +49,7 @@ export default function Hero() {
             >
               <Globe className="h-3.5 w-3.5 text-blue-400" />
               <span className="text-[11px] font-semibold uppercase tracking-widest text-blue-300">
-                Republic of the Philippines · LGU Digital Platform
+                Republic of the Philippines · Local Government Unit · Davao Region
               </span>
             </div>
 

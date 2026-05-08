@@ -7,10 +7,10 @@ namespace backend.Services;
 
 public class PropertyService : IPropertyService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly AppDbContext _context;
     private readonly IAuditService _auditService;
 
-    public PropertyService(ApplicationDbContext context, IAuditService auditService)
+    public PropertyService(AppDbContext context, IAuditService auditService)
     {
         _context = context;
         _auditService = auditService;
@@ -68,7 +68,7 @@ public class PropertyService : IPropertyService
         await _context.SaveChangesAsync();
 
         await _auditService.LogAsync(createdBy, "CreateProperty", "Property", LogSeverity.Info,
-            $"Created property {propertyNumber} for owner {owner.Username}");
+            $"Created property {propertyNumber} for owner {owner.UserName ?? "unknown"}");
 
         return await GetPropertyByIdAsync(property.PropertyId) 
             ?? throw new InvalidOperationException("Failed to retrieve created property");

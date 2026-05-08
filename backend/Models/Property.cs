@@ -24,7 +24,7 @@ public class Property
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     
-    public User Owner { get; set; } = null!;
+    public ApplicationUser Owner { get; set; } = null!;
     public Region Region { get; set; } = null!;
     public Province Province { get; set; } = null!;
     public City City { get; set; } = null!;
@@ -45,7 +45,7 @@ public class PropertyDocument
     public DateTime UploadedAt { get; set; }
     
     public Property Property { get; set; } = null!;
-    public User? Uploader { get; set; }
+    public ApplicationUser? Uploader { get; set; }
 }
 
 public enum PropertyType
