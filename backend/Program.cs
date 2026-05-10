@@ -15,32 +15,49 @@ using MySqlConnector;
 var builder = WebApplication.CreateBuilder(args);
 
 var runtimeMode = (builder.Configuration["TaxSync:RuntimeMode"] ?? "Local").Trim();
+var databaseProvider = (builder.Configuration["Database:Provider"] ?? "MySql").Trim();
+var inMemoryDatabaseName = (builder.Configuration["Database:InMemoryName"] ?? "TaxSyncDevelopment").Trim();
+var useInMemoryDatabase = databaseProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase);
+var useMySqlDatabase = databaseProvider.Equals("MySql", StringComparison.OrdinalIgnoreCase);
+
+if (!useInMemoryDatabase && !useMySqlDatabase)
+{
+    throw new InvalidOperationException("Database:Provider must be either 'MySql' or 'InMemory'.");
+}
 
 // Database configuration
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-ValidateRuntimeMode(runtimeMode, connectionString);
-
-var databaseServerVersion = builder.Configuration["Database:ServerVersion"] ?? "8.0.0";
-if (!Version.TryParse(databaseServerVersion, out var mysqlVersion))
+if (useMySqlDatabase && string.IsNullOrWhiteSpace(connectionString))
 {
-    mysqlVersion = new Version(8, 0, 0);
+    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required when Database:Provider is MySql.");
+}
+
+ValidateRuntimeMode(runtimeMode, databaseProvider, connectionString);
+
+var mysqlVersion = new Version(8, 0, 0);
+if (useMySqlDatabase)
+{
+    var databaseServerVersion = builder.Configuration["Database:ServerVersion"] ?? "8.0.0";
+    if (!Version.TryParse(databaseServerVersion, out mysqlVersion))
+    {
+        mysqlVersion = new Version(8, 0, 0);
+    }
 }
 
 var dbStartupRetries = Math.Max(1, builder.Configuration.GetValue("Database:StartupRetries", 30));
 var dbStartupRetryDelaySeconds = Math.Max(1, builder.Configuration.GetValue("Database:StartupRetryDelaySeconds", 2));
-
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()?
-    .Select(origin => origin.Trim().TrimEnd('/'))
-    .Where(origin => !string.IsNullOrWhiteSpace(origin))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .ToArray() ?? [];
-
-if (allowedOrigins.Length == 0)
-{
-    throw new InvalidOperationException("Cors:AllowedOrigins must contain at least one frontend origin.");
-}
+var dbConnectionProbeTimeoutSeconds = Math.Max(1, builder.Configuration.GetValue("Database:ConnectionProbeTimeoutSeconds", 3));
+var defaultCreateDatabaseOnStartup = !runtimeMode.Equals("Production", StringComparison.OrdinalIgnoreCase)
+    && (!useMySqlDatabase || IsLoopbackHost(GetDatabaseHost(connectionString)));
+var createDatabaseOnStartup = builder.Configuration.GetValue<bool?>("Database:CreateDatabaseOnStartup")
+    ?? defaultCreateDatabaseOnStartup;
+var applyMigrationsOnStartup = builder.Configuration.GetValue<bool?>("Database:ApplyMigrationsOnStartup")
+    ?? false;
+var ensureCreatedOnStartup = builder.Configuration.GetValue<bool?>("Database:EnsureCreatedOnStartup")
+    ?? true;
+var failFastOnDatabaseStartup = builder.Configuration.GetValue<bool?>("Database:FailFastOnStartup")
+    ?? false;
 
 // Add services to the container
 builder.Services.AddControllers()
@@ -83,18 +100,25 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.AllowAnyOrigin()
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+            .AllowAnyMethod();
     });
 });
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(connectionString, new MySqlServerVersion(mysqlVersion), mysqlOptions =>
-    {
-        mysqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
-    }));
+if (useInMemoryDatabase)
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseInMemoryDatabase(inMemoryDatabaseName));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseMySql(connectionString!, new MySqlServerVersion(mysqlVersion), mysqlOptions =>
+        {
+            mysqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
+        }));
+}
 
 builder.Services.Configure<PasswordHasherOptions>(options =>
 {
@@ -191,14 +215,36 @@ builder.Services.AddHttpClient<backend.Services.Ml.IMlService, backend.Services.
 
 var app = builder.Build();
 
-LogStartupConfiguration(app.Services, runtimeMode, connectionString, allowedOrigins);
-
-await EnsureDatabaseAsync(
+LogStartupConfiguration(
     app.Services,
+    runtimeMode,
+    databaseProvider,
     connectionString,
+    inMemoryDatabaseName);
+
+var databaseReadyOnStartup = await EnsureDatabaseAsync(
+    app.Services,
+    databaseProvider,
+    connectionString,
+    runtimeMode,
+    createDatabaseOnStartup,
+    applyMigrationsOnStartup,
+    ensureCreatedOnStartup,
+    failFastOnDatabaseStartup,
+    dbConnectionProbeTimeoutSeconds,
     dbStartupRetries,
     TimeSpan.FromSeconds(dbStartupRetryDelaySeconds));
-await AdminBootstrapper.EnsureAdminAsync(app.Services, app.Configuration);
+
+if (databaseReadyOnStartup)
+{
+    await AdminBootstrapper.EnsureAdminAsync(app.Services, app.Configuration);
+}
+else
+{
+    app.Services.GetService<ILoggerFactory>()?
+        .CreateLogger("AdminBootstrapper")
+        .LogWarning("Skipping admin bootstrap because the database was not reachable during startup.");
+}
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -227,26 +273,55 @@ app.MapControllers();
 
 // Health check endpoint
 app.MapGet("/health", (AppDbContext dbContext, CancellationToken cancellationToken) =>
-    GetHealthAsync(dbContext, runtimeMode, cancellationToken)).AllowAnonymous();
+    GetHealthAsync(dbContext, runtimeMode, databaseProvider, connectionString, dbConnectionProbeTimeoutSeconds, cancellationToken)).AllowAnonymous();
 
 app.MapGet("/api/health", (AppDbContext dbContext, CancellationToken cancellationToken) =>
-    GetHealthAsync(dbContext, runtimeMode, cancellationToken)).AllowAnonymous();
+    GetHealthAsync(dbContext, runtimeMode, databaseProvider, connectionString, dbConnectionProbeTimeoutSeconds, cancellationToken)).AllowAnonymous();
 
-app.Run();
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+app.Run($"http://0.0.0.0:{port}");
 
 static async Task<IResult> GetHealthAsync(
     AppDbContext dbContext,
     string runtimeMode,
+    string databaseProvider,
+    string? connectionString,
+    int connectionProbeTimeoutSeconds,
     CancellationToken cancellationToken)
 {
-    var databaseReady = await dbContext.Database.CanConnectAsync(cancellationToken);
+    if (dbContext.Database.IsInMemory())
+    {
+        return Results.Ok(new
+        {
+            status = "healthy",
+            database = "in-memory",
+            mode = runtimeMode,
+            timestamp = DateTime.UtcNow,
+            service = "Property Taxation & Compliance API"
+        });
+    }
 
-    if (!databaseReady)
+    if (!databaseProvider.Equals("MySql", StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.Json(new
+        {
+            status = "degraded",
+            database = "unsupported-provider",
+            mode = runtimeMode,
+            timestamp = DateTime.UtcNow,
+            service = "Property Taxation & Compliance API"
+        }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    var databaseReadiness = await TryCheckMySqlReadinessAsync(connectionString, connectionProbeTimeoutSeconds, cancellationToken);
+
+    if (!databaseReadiness.IsReady)
     {
         return Results.Json(new
         {
             status = "degraded",
             database = "unavailable",
+            detail = databaseReadiness.Error,
             mode = runtimeMode,
             timestamp = DateTime.UtcNow,
             service = "Property Taxation & Compliance API"
@@ -263,20 +338,63 @@ static async Task<IResult> GetHealthAsync(
     });
 }
 
-static async Task EnsureDatabaseAsync(
+static async Task<bool> EnsureDatabaseAsync(
     IServiceProvider services,
-    string connectionString,
+    string databaseProvider,
+    string? connectionString,
+    string runtimeMode,
+    bool createDatabaseOnStartup,
+    bool applyMigrationsOnStartup,
+    bool ensureCreatedOnStartup,
+    bool failFastOnStartup,
+    int connectionProbeTimeoutSeconds,
     int maxRetries,
     TimeSpan retryDelay)
 {
     var logger = services.GetService<ILoggerFactory>()?.CreateLogger("DatabaseBootstrapper");
 
+    if (databaseProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
+    {
+        using var scope = services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.EnsureCreatedAsync();
+        logger?.LogInformation(
+            "Initialized in-memory database for runtime mode {RuntimeMode}.",
+            runtimeMode);
+        return true;
+    }
+
+    ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+
+    if (!createDatabaseOnStartup && !applyMigrationsOnStartup && !ensureCreatedOnStartup && !failFastOnStartup)
+    {
+        var readiness = await TryCheckMySqlReadinessAsync(connectionString, connectionProbeTimeoutSeconds);
+
+        if (readiness.IsReady)
+        {
+            logger?.LogInformation("Verified MySQL connectivity and schema readiness for runtime mode {RuntimeMode}.", runtimeMode);
+            return true;
+        }
+
+        logger?.LogWarning(
+            "MySQL was not reachable or ready during startup: {Error}. Continuing application startup; /api/health will report degraded until the database is reachable.",
+            readiness.Error ?? "unknown error");
+        return false;
+    }
+
     for (var attempt = 1; attempt <= maxRetries; attempt++)
     {
         try
         {
-            await EnsureDatabaseCoreAsync(services, connectionString, logger);
-            return;
+            await EnsureDatabaseCoreAsync(
+                services,
+                connectionString,
+                runtimeMode,
+                createDatabaseOnStartup,
+                applyMigrationsOnStartup,
+                ensureCreatedOnStartup,
+                logger);
+            return true;
         }
         catch (Exception ex) when (attempt < maxRetries && IsDatabaseStartupException(ex))
         {
@@ -295,20 +413,34 @@ static async Task EnsureDatabaseAsync(
                 ex,
                 "Database startup failed after {MaxRetries} attempts.",
                 maxRetries);
-            throw;
+
+            if (failFastOnStartup)
+            {
+                throw;
+            }
+
+            logger?.LogWarning(
+                "Continuing application startup with database unavailable. /api/health will report degraded until MySQL is reachable.");
+            return false;
         }
     }
+
+    return false;
 }
 
 static async Task EnsureDatabaseCoreAsync(
     IServiceProvider services,
     string connectionString,
+    string runtimeMode,
+    bool createDatabaseOnStartup,
+    bool applyMigrationsOnStartup,
+    bool ensureCreatedOnStartup,
     ILogger? logger)
 {
     var connectionBuilder = new MySqlConnectionStringBuilder(connectionString);
     var databaseName = connectionBuilder.Database;
 
-    if (!string.IsNullOrWhiteSpace(databaseName))
+    if (createDatabaseOnStartup && !string.IsNullOrWhiteSpace(databaseName))
     {
         var serverConnectionBuilder = new MySqlConnectionStringBuilder(connectionBuilder.ConnectionString)
         {
@@ -334,25 +466,95 @@ static async Task EnsureDatabaseCoreAsync(
         command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{EscapeMySqlIdentifier(databaseName)}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
         await command.ExecuteNonQueryAsync();
     }
+    else if (!string.IsNullOrWhiteSpace(databaseName))
+    {
+        logger?.LogInformation(
+            "Skipping CREATE DATABASE bootstrap for runtime mode {RuntimeMode}. Target database: {Database}.",
+            runtimeMode,
+            databaseName);
+    }
 
     using var scope = services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    await dbContext.Database.EnsureCreatedAsync();
-    logger?.LogInformation("Database ensured: {Database}", databaseName);
+    if (applyMigrationsOnStartup)
+    {
+        await dbContext.Database.MigrateAsync();
+        logger?.LogInformation("Database migrations applied: {Database}", databaseName);
+        return;
+    }
+
+    if (ensureCreatedOnStartup)
+    {
+        await dbContext.Database.EnsureCreatedAsync();
+        logger?.LogInformation("Database ensured: {Database}", databaseName);
+        return;
+    }
+
+    var canConnect = await dbContext.Database.CanConnectAsync();
+    if (!canConnect)
+    {
+        throw new InvalidOperationException($"Unable to connect to database '{databaseName}'.");
+    }
+
+    await dbContext.Users.AsNoTracking().Take(1).AnyAsync();
+
+    logger?.LogInformation(
+        "Verified database connectivity and schema without bootstrap for runtime mode {RuntimeMode}. Database: {Database}.",
+        runtimeMode,
+        databaseName);
 }
 
 static bool IsDatabaseStartupException(Exception exception)
 {
-    return exception is MySqlException or TimeoutException
+    return exception is MySqlException or TimeoutException or OperationCanceledException
+        || (exception is InvalidOperationException invalidOperationException
+            && invalidOperationException.Message.StartsWith("Unable to connect to database", StringComparison.Ordinal))
         || (exception.InnerException is not null && IsDatabaseStartupException(exception.InnerException));
+}
+
+static async Task<(bool IsReady, string? Error)> TryCheckMySqlReadinessAsync(
+    string? connectionString,
+    int timeoutSeconds,
+    CancellationToken cancellationToken = default)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        return (false, "ConnectionStrings:DefaultConnection is not configured.");
+    }
+
+    try
+    {
+        var connectionBuilder = new MySqlConnectionStringBuilder(connectionString)
+        {
+            ConnectionTimeout = (uint)timeoutSeconds
+        };
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+
+        await using var connection = new MySqlConnection(connectionBuilder.ConnectionString);
+        await connection.OpenAsync(timeoutCts.Token);
+
+        await using var command = connection.CreateCommand();
+        command.CommandTimeout = timeoutSeconds;
+        command.CommandText = "SELECT 1 FROM `users` LIMIT 1;";
+        await command.ExecuteScalarAsync(timeoutCts.Token);
+
+        return (true, null);
+    }
+    catch (Exception ex) when (IsDatabaseStartupException(ex))
+    {
+        return (false, ex.GetBaseException().Message);
+    }
 }
 
 static void LogStartupConfiguration(
     IServiceProvider services,
     string runtimeMode,
-    string connectionString,
-    string[] allowedOrigins)
+    string databaseProvider,
+    string? connectionString,
+    string inMemoryDatabaseName)
 {
     var logger = services.GetService<ILoggerFactory>()?.CreateLogger("StartupConfiguration");
     if (logger is null)
@@ -360,22 +562,82 @@ static void LogStartupConfiguration(
         return;
     }
 
+    if (databaseProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase))
+    {
+        logger.LogInformation(
+            "Starting TaxSync backend in {RuntimeMode} mode using {DatabaseProvider} database {Database}.",
+            runtimeMode,
+            databaseProvider,
+            inMemoryDatabaseName);
+        return;
+    }
+
+    ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
     var connectionBuilder = new MySqlConnectionStringBuilder(connectionString);
 
     logger.LogInformation(
-        "Starting TaxSync backend in {RuntimeMode} mode. Database target: {Server}:{Port}/{Database} (User={User}). Allowed origins: {AllowedOrigins}.",
+        "Starting TaxSync backend in {RuntimeMode} mode using {DatabaseProvider}. Database target: {Server}:{Port}/{Database} (User={User}).",
         runtimeMode,
+        databaseProvider,
         connectionBuilder.Server,
         connectionBuilder.Port,
         connectionBuilder.Database,
-        connectionBuilder.UserID,
-        allowedOrigins.Length == 0 ? "<none>" : string.Join(", ", allowedOrigins));
+        connectionBuilder.UserID);
 }
 
-static void ValidateRuntimeMode(string runtimeMode, string connectionString)
+static void ValidateRuntimeMode(string runtimeMode, string databaseProvider, string? connectionString)
 {
+    if (string.IsNullOrWhiteSpace(runtimeMode))
+    {
+        throw new InvalidOperationException("TaxSync:RuntimeMode must be set to Local, Docker, or Production.");
+    }
+
+    var supportedRuntimeMode = runtimeMode.Equals("Local", StringComparison.OrdinalIgnoreCase)
+        || runtimeMode.Equals("Docker", StringComparison.OrdinalIgnoreCase)
+        || runtimeMode.Equals("Production", StringComparison.OrdinalIgnoreCase);
+
+    if (!supportedRuntimeMode)
+    {
+        throw new InvalidOperationException("TaxSync:RuntimeMode must be Local, Docker, or Production.");
+    }
+
+    var useInMemoryDatabase = databaseProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase);
+    var useMySqlDatabase = databaseProvider.Equals("MySql", StringComparison.OrdinalIgnoreCase);
+
+    if (!useInMemoryDatabase && !useMySqlDatabase)
+    {
+        throw new InvalidOperationException("Database:Provider must be either MySql or InMemory.");
+    }
+
+    if (useInMemoryDatabase)
+    {
+        if (!runtimeMode.Equals("Local", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Database:Provider=InMemory is supported only in Local runtime mode.");
+        }
+
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required when Database:Provider is MySql.");
+    }
+
     var connectionBuilder = new MySqlConnectionStringBuilder(connectionString);
-    var databaseHost = connectionBuilder.Server;
+    var databaseHost = connectionBuilder.Server ?? string.Empty;
+
+    if (runtimeMode.Equals("Production", StringComparison.OrdinalIgnoreCase))
+    {
+        if (string.IsNullOrWhiteSpace(databaseHost))
+        {
+            throw new InvalidOperationException(
+                "Production mode requires a non-empty database host in ConnectionStrings:DefaultConnection.");
+        }
+
+        return;
+    }
 
     if (runtimeMode.Equals("Docker", StringComparison.OrdinalIgnoreCase) && IsLoopbackHost(databaseHost))
     {
@@ -383,12 +645,6 @@ static void ValidateRuntimeMode(string runtimeMode, string connectionString)
             "Docker mode cannot use a loopback database host. Use the Docker service name, for example Server=mysql;Port=3306;...");
     }
 
-    if (runtimeMode.Equals("Local", StringComparison.OrdinalIgnoreCase) &&
-        databaseHost.Equals("mysql", StringComparison.OrdinalIgnoreCase))
-    {
-        throw new InvalidOperationException(
-            "Local mode cannot use the Docker-only database host 'mysql'. Use 127.0.0.1 or localhost for local development.");
-    }
 }
 
 static bool IsLoopbackHost(string host)
@@ -396,6 +652,18 @@ static bool IsLoopbackHost(string host)
     return host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
         || host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
         || host.Equals("::1", StringComparison.OrdinalIgnoreCase);
+}
+
+static string GetDatabaseHost(string? connectionString)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        return string.Empty;
+    }
+
+    var connectionBuilder = new MySqlConnectionStringBuilder(connectionString);
+
+    return connectionBuilder.Server ?? string.Empty;
 }
 
 static string EscapeMySqlIdentifier(string identifier)

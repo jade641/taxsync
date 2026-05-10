@@ -9,16 +9,16 @@ This project now uses one stable network contract for local mode and one for Doc
 | Frontend | `http://127.0.0.1:5173` | `http://localhost:3000` |
 | Backend API | `http://localhost:5000` | host `http://localhost:5000`, container `http://backend:8080` |
 | Backend health | `http://localhost:5000/api/health` | `http://localhost:5000/api/health` |
-| MySQL | `localhost:3306` from `backend/appsettings.json` | host `localhost:3307`, container `mysql:3306` |
+| MySQL | optional for local mode; Development defaults to in-memory, or set `Database__Provider=MySql` with a reachable endpoint | host `localhost:3307`, container `mysql:3306` |
 
 ## Files that own startup and networking
 
 - `backend/Program.cs`: config-driven CORS, fixed runtime-mode validation, MySQL startup retry, DB-backed `/api/health`, HTTPS redirection controlled by config.
-- `backend/Properties/launchSettings.json`: one local API profile on `http://127.0.0.1:5000`.
+- `backend/Properties/launchSettings.json`: one local API profile on `http://0.0.0.0:5000` with `ASPNETCORE_ENVIRONMENT=Development` and `TaxSync:RuntimeMode=Local`.
 - `backend/appsettings.json`: local CORS origins, frontend public URL, database retry settings, runtime mode.
 - `frontend/vite.config.ts`: fixed Vite port `5173`, strict port mode, local `/api` proxy.
 - `frontend/.env.development`: local frontend runtime config.
-- `frontend/.env.production`: production/Docker build runtime config.
+- `frontend/.env.production`: Vercel production build runtime config pointing at your deployed backend API.
 - `frontend/src/config/apiBase.ts`: normalizes environment API config and rejects Docker localhost API targets.
 - `frontend/src/lib/apiClient.ts`: health check, retry, timeout, auth headers, and friendly API errors.
 - `frontend/nginx.conf`: Docker same-origin `/api` proxy to `backend:8080`.
@@ -41,6 +41,8 @@ powershell -ExecutionPolicy Bypass -File .\frontend\run-dev.ps1
 ```
 
 The frontend opens at `http://127.0.0.1:5173`. Login calls `/api/auth/login`; Vite proxies that to `http://localhost:5000`.
+
+By default, local mode uses an in-memory database so the API can start without reaching the hosted MonsterASP MySQL network. For persistent local data, start a reachable MySQL instance and set `Database__Provider=MySql` plus `ConnectionStrings__DefaultConnection` before starting the backend.
 
 ## Docker mode commands
 
@@ -77,12 +79,34 @@ VITE_RUNTIME_MODE=docker
 VITE_API_BASE_URL=/api
 ```
 
-Production frontend build (`frontend/.env.production`):
+Vercel frontend build (`frontend/.env.production`):
 
 ```env
-VITE_RUNTIME_MODE=docker
-VITE_API_BASE_URL=/api
+VITE_RUNTIME_MODE=vercel
+VITE_API_BASE_URL=https://your-backend-host.example.com/api
 ```
+
+Production backend using MonsterASP MySQL (`backend/appsettings.Production.json`):
+
+```json
+{
+  "TaxSync": {
+    "RuntimeMode": "Production"
+  },
+  "Database": {
+    "Provider": "MySql",
+    "CreateDatabaseOnStartup": false,
+    "EnsureCreatedOnStartup": false
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=db51266.databaseasp.net; Database=db51266; Uid=db51266; Pwd=<monsterasp-password>;"
+  }
+}
+```
+
+This MySQL connection string matches the MonsterASP database panel in the screenshot. Those credentials are valid only from an application host that can reach `db51266.databaseasp.net`. If you move the backend outside MonsterASP-hosted websites, use the provider's remote-access database credentials instead of the website-local ones.
+
+When the frontend is hosted on Vercel, set the Vercel production build variable `VITE_API_BASE_URL` to your real backend URL, not to the database host. The backend CORS config in this repo now allows `https://property-taxation.vercel.app` and Vercel subdomains through `https://*.vercel.app`. If you use a custom frontend domain, add it to `Cors:AllowedOrigins`.
 
 Docker root environment (`.env.example`):
 
